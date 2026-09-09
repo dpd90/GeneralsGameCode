@@ -173,6 +173,7 @@ public:
 	virtual const ContainedItemsList* getContainedItemsList() const override { return &m_containList; }
 	virtual Bool isContained( const Object *obj ) const override;
 	virtual const Object *friend_getRider() const override {return nullptr;} ///< Damn.  The draw order dependency bug for riders means that our draw module needs to cheat to get around it.
+	virtual void friend_getVisibleRiders( std::vector<const Object*>& riders ) const override { const Object* r = friend_getRider(); if( r ) riders.push_back( r ); } ///< Default: same single rider friend_getRider() returns. OverlordContainV2 overrides this to expose all of its riders.
 	virtual Real getContainedItemsMass() const override;
 	virtual UnsignedInt getStealthUnitsContained() const override { return m_stealthUnitsContained; }
 	virtual UnsignedInt getHeroUnitsContained() const override { return m_heroUnitsContained; }

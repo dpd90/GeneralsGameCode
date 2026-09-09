@@ -317,6 +317,14 @@ public:
 	TintEnvelope *getColorTintEnvelope() { return m_colorTintEnvelope; }
 	void setColorTintEnvelope( TintEnvelope &source ) { if (m_colorTintEnvelope) *m_colorTintEnvelope = source; }
 
+	// GeneralsMod @feature Dimitar 08/09/2026: lets WeaponBonusUpdateV2 (see WeaponBonusUpdateV2.h) supply a custom
+	// TINT_STATUS_FRENZY color instead of the hardcoded FRENZY_COLOR / FRENZY_COLOR_INFANTRY constants. Unused by
+	// anything else, so it has no effect unless something explicitly sets it.
+	void setFrenzyTintColorOverride( const RGBColor &color ) { m_hasFrenzyTintColorOverride = TRUE; m_frenzyTintColorOverride = color; }
+	void clearFrenzyTintColorOverride() { m_hasFrenzyTintColorOverride = FALSE; }
+	Bool hasFrenzyTintColorOverride() const { return m_hasFrenzyTintColorOverride; }
+	const RGBColor &getFrenzyTintColorOverride() const { return m_frenzyTintColorOverride; }
+
   void imitateStealthLook( Drawable& otherDraw );
 
 	void setTerrainDecal(TerrainDecalType type);	///<decal that is to appear under the drawable
@@ -454,6 +462,7 @@ public:
 							);
 
 	Int getBarrelCount(WeaponSlotType wslot) const;
+	AsciiString getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const;///< GeneralsMod @feature Dimitar 08/09/2026
 
 	// when our Object changes teams, it calls us to let us know, so
 	// we can update our model, etc., if necessary. NOTE, we don't guarantee
@@ -679,6 +688,12 @@ private:
 	DrawableStatusBits m_status;		///< status bits (see DrawableStatus enum)
 	UnsignedInt m_tintStatus;				///< tint color status bits (see TintStatus enum)
 	UnsignedInt m_prevTintStatus;///< for edge testing with m_tintStatus
+
+	// GeneralsMod @feature Dimitar 08/09/2026: see setFrenzyTintColorOverride(). Deliberately not xfer'd: it is a
+	// purely cosmetic override, so after a save/load a unit still mid-effect will cosmetically show the default
+	// frenzy color until the effect ends (the underlying bonus/timer are unaffected).
+	Bool m_hasFrenzyTintColorOverride;
+	RGBColor m_frenzyTintColorOverride;
 
 	enum FadingMode
 	{

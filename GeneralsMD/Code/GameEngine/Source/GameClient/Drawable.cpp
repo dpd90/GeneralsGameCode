@@ -416,6 +416,11 @@ Drawable::Drawable( const ThingTemplate *thingTemplate, DrawableStatusBits statu
 	m_tintStatus = 0;
 	m_prevTintStatus = 0;
 
+	m_hasFrenzyTintColorOverride = FALSE;///< GeneralsMod @feature Dimitar 08/09/2026
+	m_frenzyTintColorOverride.red = 0.0f;
+	m_frenzyTintColorOverride.green = 0.0f;
+	m_frenzyTintColorOverride.blue = 0.0f;
+
 #ifdef DIRTY_CONDITION_FLAGS
 	m_isModelDirty = true;
 #endif
@@ -1234,7 +1239,12 @@ void Drawable::updateDrawable()
 			if (m_colorTintEnvelope == nullptr)
 				m_colorTintEnvelope = newInstance(TintEnvelope);
 
-      m_colorTintEnvelope->play( isKindOf( KINDOF_INFANTRY) ? &FRENZY_COLOR_INFANTRY:&FRENZY_COLOR, 30, 30, SUSTAIN_INDEFINITELY);
+			// GeneralsMod @feature Dimitar 08/09/2026: WeaponBonusUpdateV2 can supply a custom color here instead of
+			// the hardcoded constants below; everything else that sets TINT_STATUS_FRENZY is unaffected.
+			const RGBColor *frenzyColor = m_hasFrenzyTintColorOverride
+				? &m_frenzyTintColorOverride
+				: ( isKindOf( KINDOF_INFANTRY) ? &FRENZY_COLOR_INFANTRY : &FRENZY_COLOR );
+      m_colorTintEnvelope->play( frenzyColor, 30, 30, SUSTAIN_INDEFINITELY);
 
     }
 //		else if ( testTintStatus( TINT_STATUS_POISONED) )
@@ -4204,6 +4214,24 @@ Int Drawable::getBarrelCount(WeaponSlotType wslot) const
 			return count;
 	}
 	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 08/09/2026: mirrors getBarrelCount()'s forwarding, for laser weapons
+// that want to resolve a per-barrel bone name instead of a single fixed LaserBoneName.
+AsciiString Drawable::getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const
+{
+	for (const DrawModule** dm = getDrawModules(); *dm; ++dm)
+	{
+		const ObjectDrawInterface* di = (*dm)->getObjectDrawInterface();
+		if (di)
+		{
+			AsciiString name = di->getWeaponFireFXBoneName(wslot, specificBarrelToUse);
+			if (name.isNotEmpty())
+				return name;
+		}
+	}
+	return AsciiString::TheEmptyString;
 }
 
 //-------------------------------------------------------------------------------------------------

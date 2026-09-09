@@ -328,6 +328,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/GenerateMinefieldBehavior.h
     Include/GameLogic/Module/GrantScienceUpgrade.h
     Include/GameLogic/Module/GrantStealthBehavior.h
+    Include/GameLogic/Module/FireOCLBehaviorV2.h
     Include/GameLogic/Module/GrantUpgradeCreate.h
     Include/GameLogic/Module/HackInternetAIUpdate.h
     Include/GameLogic/Module/HealContain.h
@@ -372,6 +373,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/OpenContain.h
     Include/GameLogic/Module/OverchargeBehavior.h
     Include/GameLogic/Module/OverlordContain.h
+    Include/GameLogic/Module/OverlordContainV2.h
     Include/GameLogic/Module/ParachuteContain.h
     Include/GameLogic/Module/ParkingPlaceBehavior.h
     Include/GameLogic/Module/ParticleUplinkCannonUpdate.h
@@ -468,6 +470,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/WanderAIUpdate.h
     Include/GameLogic/Module/WaveGuideUpdate.h
     Include/GameLogic/Module/WeaponBonusUpdate.h
+    Include/GameLogic/Module/WeaponBonusUpdateV2.h
     Include/GameLogic/Module/WeaponBonusUpgrade.h
     Include/GameLogic/Module/WeaponSetUpgrade.h
     Include/GameLogic/Module/WorkerAIUpdate.h
@@ -852,6 +855,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Behavior/FlightDeckBehavior.cpp
     Source/GameLogic/Object/Behavior/GenerateMinefieldBehavior.cpp
     Source/GameLogic/Object/Behavior/GrantStealthBehavior.cpp
+    Source/GameLogic/Object/Behavior/FireOCLBehaviorV2.cpp
     Source/GameLogic/Object/Behavior/InstantDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/JetSlowDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/MinefieldBehavior.cpp
@@ -904,6 +908,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Contain/MobNexusContain.cpp
     Source/GameLogic/Object/Contain/OpenContain.cpp
     Source/GameLogic/Object/Contain/OverlordContain.cpp
+    Source/GameLogic/Object/Contain/OverlordContainV2.cpp
     Source/GameLogic/Object/Contain/ParachuteContain.cpp
     Source/GameLogic/Object/Contain/RailedTransportContain.cpp
     Source/GameLogic/Object/Contain/RiderChangeContain.cpp
@@ -1047,6 +1052,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/UpdateModule.cpp
     Source/GameLogic/Object/Update/WaveGuideUpdate.cpp
     Source/GameLogic/Object/Update/WeaponBonusUpdate.cpp
+    Source/GameLogic/Object/Update/WeaponBonusUpdateV2.cpp
     Source/GameLogic/Object/Upgrade/ActiveShroudUpgrade.cpp
     Source/GameLogic/Object/Upgrade/ArmorUpgrade.cpp
     Source/GameLogic/Object/Upgrade/CommandSetUpgrade.cpp

@@ -44,6 +44,7 @@
 // behavior includes
 #include "GameLogic/Module/AutoHealBehavior.h"
 #include "GameLogic/Module/GrantStealthBehavior.h"
+#include "GameLogic/Module/FireOCLBehaviorV2.h"///< GeneralsMod @feature Dimitar 08/09/2026
 #include "GameLogic/Module/NeutronBlastBehavior.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BridgeBehavior.h"
@@ -67,6 +68,7 @@
 #include "GameLogic/Module/MobNexusContain.h"
 #include "GameLogic/Module/TunnelContain.h"
 #include "GameLogic/Module/OverlordContain.h"
+#include "GameLogic/Module/OverlordContainV2.h"
 #include "GameLogic/Module/HelixContain.h"
 #include "GameLogic/Module/ParachuteContain.h"
 #ifdef ALLOW_SURRENDER
@@ -186,6 +188,7 @@
 #include "GameLogic/Module/WanderAIUpdate.h"
 #include "GameLogic/Module/WaveGuideUpdate.h"
 #include "GameLogic/Module/WeaponBonusUpdate.h"
+#include "GameLogic/Module/WeaponBonusUpdateV2.h"///< GeneralsMod @feature Dimitar 08/09/2026
 #include "GameLogic/Module/WorkerAIUpdate.h"
 #include "GameLogic/Module/PowerPlantUpdate.h"
 #include "GameLogic/Module/CheckpointUpdate.h"
@@ -321,6 +324,7 @@ void ModuleFactory::init()
 	// behavior modules
 	addModule( AutoHealBehavior );
 	addModule( GrantStealthBehavior );
+	addModule( FireOCLBehaviorV2 );///< GeneralsMod @feature Dimitar 08/09/2026
 	addModule( NeutronBlastBehavior );
 	addModule( BridgeBehavior );
 	addModule( BridgeScaffoldBehavior );
@@ -344,6 +348,7 @@ void ModuleFactory::init()
 	addModule( MobNexusContain );
 	addModule( TunnelContain );
 	addModule( OverlordContain );
+	addModule( OverlordContainV2 );
 	addModule( HelixContain );
 	addModule( ParachuteContain );
 #ifdef ALLOW_SURRENDER
@@ -401,6 +406,7 @@ void ModuleFactory::init()
   addModule( LeafletDropBehavior );
 	addModule( AutoDepositUpdate );
 	addModule( WeaponBonusUpdate );
+	addModule( WeaponBonusUpdateV2 );///< GeneralsMod @feature Dimitar 08/09/2026
 	addModule( MissileAIUpdate );
 	addModule( NeutronMissileUpdate );
 	addModule( FireSpreadUpdate );

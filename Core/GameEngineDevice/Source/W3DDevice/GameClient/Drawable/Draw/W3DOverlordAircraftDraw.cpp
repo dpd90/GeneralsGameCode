@@ -36,6 +36,7 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 
+#include <vector>
 #include "Common/Xfer.h"
 #include "GameClient/Drawable.h"
 #include "GameLogic/Object.h"
@@ -85,27 +86,33 @@ void W3DOverlordAircraftDraw::doDrawModule(const Matrix3D* transformMtx)
 {
 	W3DModelDraw::doDrawModule(transformMtx);
 
-	// Our big thing is that we get our specific passenger (the turret thing) and then wake it up and make it draw
+	// Our big thing is that we get our passenger(s) (the turret thing(s)) and then wake them up and
+	// make them draw. Ordinary single-rider OverlordContain (and HelixContain) hand us back just one;
+	// OverlordContainV2 can hand us back several, one per occupied slot.
 	// It depends on us because our renderObject is only made correct in the act of drawing.
 	Object *me = getDrawable()->getObject();
-	if( me
-		&& me->getContain()
-		&& me->getContain()->friend_getRider()
-		&& me->getContain()->friend_getRider()->getDrawable()
-		)
+	if( me && me->getContain() )
 	{
-		Drawable *riderDraw = me->getContain()->friend_getRider()->getDrawable();
-    if ( riderDraw )
-    {
-      TintEnvelope *env = getDrawable()->getColorTintEnvelope();
-      if ( env )
-        riderDraw->setColorTintEnvelope( *env );
+		std::vector<const Object*> riders;
+		me->getContain()->friend_getVisibleRiders( riders );
 
-      riderDraw->notifyDrawableDependencyCleared();
-      riderDraw->draw();
-    }
-    DEBUG_ASSERTCRASH( riderDraw, ("OverlordAircraftDraw finds no rider's drawable") );
+		DEBUG_ASSERTCRASH( !riders.empty(), ("OverlordAircraftDraw finds no rider's drawable") );
 
+		for( std::vector<const Object*>::const_iterator it = riders.begin(); it != riders.end(); ++it )
+		{
+			const Object *rider = *it;
+			Drawable *riderDraw = rider ? rider->getDrawable() : nullptr;
+			if ( riderDraw )
+			{
+				TintEnvelope *env = getDrawable()->getColorTintEnvelope();
+				if ( env )
+					riderDraw->setColorTintEnvelope( *env );
+
+				riderDraw->notifyDrawableDependencyCleared();
+				riderDraw->draw();
+			}
+			DEBUG_ASSERTCRASH( riderDraw, ("OverlordAircraftDraw finds no rider's drawable") );
+		}
 	}
 }
 
@@ -114,15 +121,19 @@ void W3DOverlordAircraftDraw::setHidden(Bool h)
 {
 	W3DModelDraw::setHidden(h);
 
-	// We need to hide our rider, since he won't realize he's being contained in a contained container
+	// We need to hide our rider(s), since they won't realize they're being contained in a contained container
 	Object *me = getDrawable()->getObject();
-	if( me
-		&& me->getContain()
-		&& me->getContain()->friend_getRider()
-		&& me->getContain()->friend_getRider()->getDrawable()
-		)
+	if( me && me->getContain() )
 	{
-		me->getContain()->friend_getRider()->getDrawable()->setDrawableHidden(h);
+		std::vector<const Object*> riders;
+		me->getContain()->friend_getVisibleRiders( riders );
+
+		for( std::vector<const Object*>::const_iterator it = riders.begin(); it != riders.end(); ++it )
+		{
+			const Object *rider = *it;
+			if( rider && rider->getDrawable() )
+				rider->getDrawable()->setDrawableHidden(h);
+		}
 	}
 }
 

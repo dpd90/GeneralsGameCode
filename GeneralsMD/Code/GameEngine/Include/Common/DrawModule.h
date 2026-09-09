@@ -185,6 +185,11 @@ public:
 	virtual void replaceIndicatorColor(Color color) = 0;
 	virtual Bool handleWeaponFireFX(WeaponSlotType wslot, Int specificBarrelToUse, const FXList* fxl, Real weaponSpeed, const Coord3D* victimPos, Real damageRadius) = 0;
 	virtual Int getBarrelCount(WeaponSlotType wslot) const = 0;
+	// GeneralsMod @feature Dimitar 08/09/2026: resolved bone name (e.g. "WEAPONA02") for the given
+	// barrel of this weapon slot, or an empty AsciiString if none is available. Lets code outside the
+	// Draw module (e.g. laser weapon firing) resolve the same per-barrel bone the engine already
+	// alternates real projectiles/muzzle FX through, instead of requiring one fixed literal bone name.
+	virtual AsciiString getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const = 0;
 
 	virtual void setSelectable(Bool selectable) = 0;
 

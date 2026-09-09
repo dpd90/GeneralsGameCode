@@ -228,7 +228,7 @@ public:
 	void healCompletely();														///< Restore max health to this Object
 	void notifySubdualDamage( Real amount );///< At this level, we just pass this on to our helper and do a special tint
 	void doStatusDamage( ObjectStatusTypes status, Real duration );///< At this level, we just pass this on to our helper
-	void doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration );///< At this level, we just pass this on to our helper
+	void doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride = nullptr );///< At this level, we just pass this on to our helper. GeneralsMod @feature Dimitar 08/09/2026: optional custom tint color for WeaponBonusUpdateV2
 
 	void scoreTheKill( const Object *victim );						///< I just killed this object.
 	void onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel newLevel, Bool provideFeedback = TRUE );	///< I just achieved this level right this moment

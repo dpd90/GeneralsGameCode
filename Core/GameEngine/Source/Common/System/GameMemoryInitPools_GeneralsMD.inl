@@ -102,6 +102,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "AudioRequest", 256, 8 },
 	{ "AutoHealBehavior", 1024, 256 },
 	{ "WeaponBonusUpdate", 16, 16 },
+	{ "WeaponBonusUpdateV2", 16, 16 },///< GeneralsMod @feature Dimitar 08/09/2026: new module, same pool sizing as WeaponBonusUpdate
+	{ "FireOCLBehaviorV2", 16, 16 },///< GeneralsMod @feature Dimitar 08/09/2026: new module, used the same way (short-lived special-power trigger object)
 	{ "GrantStealthBehavior", 4096, 32 },
 	{ "NeutronBlastBehavior", 4096, 32 },
 	{ "CountermeasuresBehavior", 256, 32 },
@@ -191,6 +193,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "OpenContain", 128, 32 },
 	{ "OverchargeBehavior", 32, 32 },
 	{ "OverlordContain", 32, 32 },
+	{ "OverlordContainV2", 32, 32 },
 	{ "HelixContain", 32, 32 },
 	{ "ParachuteContain", 128, 32 },
 	{ "PhysicsBehavior", 600, 32 },
