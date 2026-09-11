@@ -188,6 +188,15 @@ const char* const ArmorSetFlags::s_bitNameList[] =
 	"CRATE_UPGRADE_ONE",
 	"CRATE_UPGRADE_TWO",
 
+	"ARMOR_RIDER1",
+	"ARMOR_RIDER2",
+	"ARMOR_RIDER3",
+	"ARMOR_RIDER4",
+	"ARMOR_RIDER5",
+	"ARMOR_RIDER6",
+	"ARMOR_RIDER7",
+	"ARMOR_RIDER8",
+
 	nullptr
 };
 static_assert(ARRAY_SIZE(ArmorSetFlags::s_bitNameList) == ArmorSetFlags::NumBits + 1, "Incorrect array size");
