@@ -230,6 +230,7 @@
 // damage includes
 #include "GameLogic/Module/BoneFXDamage.h"
 #include "GameLogic/Module/TransitionDamageFX.h"
+#include "GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h"///< GeneralsMod @feature Dimitar 11/09/2026
 
 // collide includes
 #include "GameLogic/Module/FireWeaponCollide.h"
@@ -514,6 +515,7 @@ void ModuleFactory::init()
 	// damage modules
 	addModule( BoneFXDamage );
 	addModule( TransitionDamageFX );
+	addModule( SwitchStateWhenDamagedBehaviorV2 );///< GeneralsMod @feature Dimitar 11/09/2026
 
 	// collide modules
 	addModule( FireWeaponCollide );
