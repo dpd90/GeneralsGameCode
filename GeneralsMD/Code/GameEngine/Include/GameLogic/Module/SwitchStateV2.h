@@ -39,6 +39,12 @@
 //         with the SAME SpecialPowerTemplate so they find each other. This mirrors how the retail
 //         game already pairs SpecialAbility (trigger) with SpecialAbilityUpdate (the module that
 //         actually does the work).
+//
+//         GeneralsMod @feature Dimitar 11/09/2026: an object can optionally also (or instead) carry a
+//         SwitchStateWhenDamagedBehaviorV2 module sharing the same SpecialPowerTemplate, to trigger the
+//         switch automatically off qualifying damage rather than (or in addition to) the button. It
+//         calls notifyQualifyingDamage() below instead of initiateIntentToDoSpecialPower() -- see that
+//         method's declaration comment for how its semantics differ from the button's toggle.
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -109,6 +115,18 @@ public:
 	// SpecialPowerUpdateInterface (reached via our companion SwitchStateV2Activate's initiateIntentToDoSpecialPower)
 	virtual SpecialPowerUpdateInterface* getSpecialPowerUpdateInterface() override { return this; }
 	virtual Bool initiateIntentToDoSpecialPower( const SpecialPowerTemplate *specialPowerTemplate, const Object *targetObj, const Coord3D *targetPos, const Waypoint *way, UnsignedInt commandOptions ) override;
+
+	// GeneralsMod @feature Dimitar 11/09/2026: automatic (non-button) trigger hook, called by a
+	// companion SwitchStateWhenDamagedBehaviorV2 module when its damage condition is met. Unlike
+	// initiateIntentToDoSpecialPower() above (which always TOGGLES, for the manual button), this
+	// always drives us TOWARD AlteredState: if Lifetime is 0 (permanent), it is a one-time switch --
+	// once Altered, further calls are a no-op and we never auto-revert. If Lifetime > 0, every call
+	// (whether we're currently Default or already Altered) re-applies AlteredState, re-fires the
+	// configured Weapon if one is ready, and restarts the revert countdown from now -- so sustained
+	// qualifying damage keeps us Altered indefinitely and we only revert once damage stops coming in
+	// for a full Lifetime. See SwitchStateV2.h's file comment for why this can't just reuse the
+	// button's toggle path.
+	virtual Bool notifyQualifyingDamage( const SpecialPowerTemplate *specialPowerTemplate ) override;
 	virtual Bool isSpecialAbility() const override { return false; } ///< IMPORTANT: this is not cosmetic -- returning true here makes the engine blind-cast this SpecialPowerUpdateInterface* to a SpecialAbilityUpdate* in several places (e.g. ControlBarCommand.cpp's per-frame command-button update, via Object::findSpecialAbilityUpdate()). SwitchStateV2 is not a SpecialAbilityUpdate subclass, so that cast is memory corruption.
 	virtual Bool isSpecialPower() const override { return false; }
 	virtual Bool isActive() const override { return false; }

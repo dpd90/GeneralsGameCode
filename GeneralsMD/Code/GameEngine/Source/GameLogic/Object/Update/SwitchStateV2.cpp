@@ -236,6 +236,46 @@ Bool SwitchStateV2::initiateIntentToDoSpecialPower( const SpecialPowerTemplate *
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
+/** Called by a companion SwitchStateWhenDamagedBehaviorV2 module whenever its damage condition is
+	* met. See the declaration comment in SwitchStateV2.h for the full semantics -- in short: drives
+	* us toward AlteredState (never toggles back to Default), and if Lifetime is configured, refreshes
+	* the revert countdown every time this is called instead of only on the first call. */
+// ------------------------------------------------------------------------------------------------
+Bool SwitchStateV2::notifyQualifyingDamage( const SpecialPowerTemplate *specialPowerTemplate )
+{
+	const SwitchStateV2ModuleData *data = getSwitchStateV2ModuleData();
+
+	// Make sure this call is actually meant for us -- an object can have more than one special power.
+	if( specialPowerTemplate != data->m_specialPowerTemplate )
+		return FALSE;
+
+	// Permanent config (no Lifetime): this is a one-time switch. Once Altered, further qualifying
+	// damage is a no-op -- we never toggle back to Default automatically here, and there's no revert
+	// countdown to refresh.
+	if( data->m_lifetimeFrames == 0 && m_isAltered )
+		return FALSE;
+
+	applyState( TRUE );	// idempotent if we're already Altered -- just re-affirms it
+
+	// Fire our configured weapon (if any), same readiness check as the manual activation path. This
+	// naturally rate-limits repeated firing to the weapon's own reload time even under sustained
+	// qualifying damage.
+	if( m_weapon && m_weapon->getStatus() == READY_TO_FIRE )
+		m_weapon->forceFireWeapon( getObject(), getObject()->getPosition() );
+
+	if( data->m_lifetimeFrames > 0 )
+	{
+		// (Re)start the revert countdown from now -- whether this is the call that first switched us
+		// to Altered, or a refresh while we were already Altered.
+		m_revertFrame = TheGameLogic->getFrame() + data->m_lifetimeFrames;
+		setWakeFrame( getObject(), frameToSleepTime( m_revertFrame ) );
+	}
+
+	return TRUE;
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 UpdateSleepTime SwitchStateV2::update()
 {
 	if( m_revertFrame != 0 )

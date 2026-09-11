@@ -48,6 +48,14 @@ public:
 	virtual Bool doesSpecialPowerHaveOverridableDestination() const = 0;	//Does it have it, even if it's not active?
 	virtual void setSpecialPowerOverridableDestination( const Coord3D *loc ) = 0;
 	virtual Bool isPowerCurrentlyInUse( const CommandButton *command = nullptr ) const = 0;
+
+	// GeneralsMod @feature Dimitar 11/09/2026: non-pure with a default no-op, so no existing
+	// SpecialPowerUpdateInterface implementer needs to change. Called by an automatic (non-button)
+	// trigger -- e.g. SwitchStateWhenDamagedBehaviorV2 -- when its trigger condition is met.
+	// specialPowerTemplate lets a module confirm the call is actually meant for it (an object can
+	// have more than one special power), same convention as initiateIntentToDoSpecialPower() above.
+	// Returns true if the call was recognized/handled. Overridden by SwitchStateV2.
+	virtual Bool notifyQualifyingDamage( const SpecialPowerTemplate *specialPowerTemplate ) { return false; }
 };
 
 //-------------------------------------------------------------------------------------------------

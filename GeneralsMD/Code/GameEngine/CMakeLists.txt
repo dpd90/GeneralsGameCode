@@ -454,6 +454,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/SupplyWarehouseDockUpdate.h
     Include/GameLogic/Module/SwitchStateV2.h
     Include/GameLogic/Module/SwitchStateV2Activate.h
+    Include/GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h
     Include/GameLogic/Module/TechBuildingBehavior.h
     Include/GameLogic/Module/TempWeaponBonusHelper.h
     Include/GameLogic/Module/TensileFormationUpdate.h
@@ -874,6 +875,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Behavior/SlowDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/SpawnBehavior.cpp
     Source/GameLogic/Object/Behavior/SupplyWarehouseCripplingBehavior.cpp
+    Source/GameLogic/Object/Behavior/SwitchStateWhenDamagedBehaviorV2.cpp
     Source/GameLogic/Object/Behavior/TechBuildingBehavior.cpp
     Source/GameLogic/Object/Body/ActiveBody.cpp
     Source/GameLogic/Object/Body/BodyModule.cpp
