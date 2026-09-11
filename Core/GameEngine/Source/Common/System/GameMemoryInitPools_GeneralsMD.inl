@@ -133,6 +133,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "UpgradeDie", 128, 32 },
 	{ "KeepObjectDie", 128, 32 },
 	{ "DozerAIUpdate", 32, 32 },
+	{ "HealAIUpdateV2", 32, 32 },///< GeneralsMod @feature Dimitar 11/09/2026
 	{ "DynamicGeometryInfoUpdate", 16, 16 },
 	{ "DynamicShroudClearingRangeUpdate", 128, 16 },
 	{ "FXListDie", 1024, 32 },

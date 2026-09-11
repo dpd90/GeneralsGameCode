@@ -792,7 +792,7 @@ StateReturnType AIGuardRetaliateAttackAggressorState::onEnter()
 	Object *nemesis = TheGameLogic->findObjectByID( getGuardMachine()->getNemesisID() );
 
 	BodyModuleInterface *body = obj->getBodyModule();
-	if( !nemesis && body && body->getLastDamageInfo()->in.m_sourceID && body->getLastDamageInfo()->in.m_damageType != DAMAGE_HEALING )
+	if( !nemesis && body && body->getLastDamageInfo()->in.m_sourceID && !IsHealingDamage( body->getLastDamageInfo()->in.m_damageType ) )
 	{
 		nemID = obj->getBodyModule()->getLastDamageInfo()->in.m_sourceID;
 		nemesis = TheGameLogic->findObjectByID( nemID );

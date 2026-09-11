@@ -331,6 +331,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/FireOCLBehaviorV2.h
     Include/GameLogic/Module/GrantUpgradeCreate.h
     Include/GameLogic/Module/HackInternetAIUpdate.h
+    Include/GameLogic/Module/HealAIUpdateV2.h
     Include/GameLogic/Module/HealContain.h
     Include/GameLogic/Module/HealCrateCollide.h
     Include/GameLogic/Module/HeightDieUpdate.h
@@ -975,6 +976,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/AIUpdate/DeliverPayloadAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/DeployStyleAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/DozerAIUpdate.cpp
+    Source/GameLogic/Object/Update/AIUpdate/HealAIUpdateV2.cpp
     Source/GameLogic/Object/Update/AIUpdate/HackInternetAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/JetAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/MissileAIUpdate.cpp

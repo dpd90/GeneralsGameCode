@@ -4626,7 +4626,7 @@ Object* AIUpdateInterface::getNextMoodTarget( Bool calledByAI, Bool calledDuring
 
 		//Kris: August 26, 2003
 		//Do not allow units that healed me to get acquired! They are our friends!!!
-		if( bmi->getLastDamageInfo()->in.m_damageType != DAMAGE_HEALING )
+		if( !IsHealingDamage( bmi->getLastDamageInfo()->in.m_damageType ) )
 		{
 			return TheGameLogic->findObjectByID(bmi->getLastDamageInfo()->in.m_sourceID);
 		}

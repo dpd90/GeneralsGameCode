@@ -1924,7 +1924,7 @@ void Object::attemptDamage( DamageInfo *damageInfo )
 	//
 	if( damageInfo->out.m_actualDamageDealt > 0.0f &&
 			damageInfo->in.m_damageType != DAMAGE_PENALTY &&
-			damageInfo->in.m_damageType != DAMAGE_HEALING &&
+			!IsHealingDamage( damageInfo->in.m_damageType ) &&
 			getControllingPlayer() &&
 			!BitIsSet(damageInfo->in.m_sourcePlayerMask, getControllingPlayer()->getPlayerMask()) &&
 			m_radarData != nullptr &&

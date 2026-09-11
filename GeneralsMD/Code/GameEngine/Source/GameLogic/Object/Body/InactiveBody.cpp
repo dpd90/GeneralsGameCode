@@ -79,7 +79,7 @@ void InactiveBody::attemptDamage( DamageInfo *damageInfo )
 	if( damageInfo == nullptr )
 		return;
 
-	if( damageInfo->in.m_damageType == DAMAGE_HEALING )
+	if( IsHealingDamage( damageInfo->in.m_damageType ) )
 	{
 		// Healing and Damage are separate, so this shouldn't happen
 		attemptHealing( damageInfo );
@@ -116,7 +116,7 @@ void InactiveBody::attemptHealing( DamageInfo *damageInfo )
 	if( damageInfo == nullptr )
 		return;
 
-	if( damageInfo->in.m_damageType != DAMAGE_HEALING )
+	if( !IsHealingDamage( damageInfo->in.m_damageType ) )
 	{
 		// Healing and Damage are separate, so this shouldn't happen
 		attemptDamage( damageInfo );
