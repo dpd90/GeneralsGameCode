@@ -116,6 +116,7 @@
 #include "GameLogic/Module/SmartBombTargetHomingUpdate.h"
 #include "GameLogic/Module/DeliverPayloadAIUpdate.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/Module/HealAIUpdateV2.h"///< GeneralsMod @feature Dimitar 11/09/2026
 #include "GameLogic/Module/DynamicGeometryInfoUpdate.h"
 #include "GameLogic/Module/DynamicShroudClearingRangeUpdate.h"
 #include "GameLogic/Module/EnemyNearUpdate.h"
@@ -456,6 +457,7 @@ void ModuleFactory::init()
 	addModule( SupplyCenterDockUpdate );
 	addModule( SupplyWarehouseDockUpdate );
 	addModule( DozerAIUpdate );
+	addModule( HealAIUpdateV2 );///< GeneralsMod @feature Dimitar 11/09/2026
 #ifdef ALLOW_SURRENDER
 	addModule( POWTruckAIUpdate );
 #endif

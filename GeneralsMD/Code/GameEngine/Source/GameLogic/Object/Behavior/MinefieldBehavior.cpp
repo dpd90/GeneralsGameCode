@@ -459,7 +459,7 @@ void MinefieldBehavior::onDamage( DamageInfo *damageInfo )
 	{
 		Real virtualMinesExpectedF = ((Real)d->m_numVirtualMines * body->getHealth() / body->getMaxHealth());
 		Int virtualMinesExpected =
-			damageInfo->in.m_damageType == DAMAGE_HEALING ?
+			IsHealingDamage(damageInfo->in.m_damageType) ?
 			REAL_TO_INT_FLOOR(virtualMinesExpectedF) :
 			REAL_TO_INT_CEIL(virtualMinesExpectedF);
 		if (virtualMinesExpected > d->m_numVirtualMines)

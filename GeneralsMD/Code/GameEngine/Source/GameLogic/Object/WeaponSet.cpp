@@ -78,6 +78,7 @@ const char* const WeaponSetFlags::s_bitNameList[] =
 	"WEAPON_RIDER6",
 	"WEAPON_RIDER7",
 	"WEAPON_RIDER8",
+	"HEALING_DETAIL",	///< GeneralsMod @feature Dimitar 11/09/2026
 
 	nullptr
 };

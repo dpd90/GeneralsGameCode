@@ -314,7 +314,7 @@ Bool StealthUpdate::allowedToStealth( Object *stealthOwner ) const
 	{
 #if RETAIL_COMPATIBLE_CRC || PRESERVE_STRUCTURE_STEALTH_DURING_REPAIR
 		//Only if it's not healing damage.
-		if( self->getBodyModule()->getLastDamageInfo()->in.m_damageType != DAMAGE_HEALING )
+		if( !IsHealingDamage( self->getBodyModule()->getLastDamageInfo()->in.m_damageType ) )
 #endif
 		{
 			//Can't stealth if we just took damage in the last frame or two.

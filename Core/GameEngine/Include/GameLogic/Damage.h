@@ -88,6 +88,15 @@ enum DamageType CPP_11(: Int)
 	DAMAGE_KILL_GARRISONED				/*= 36*/, ///< Kills Passengers up to the number specified in Damage
 	DAMAGE_STATUS									/*= 37*/, ///< Damage that gives a status condition, not that does hitpoint damage
 
+	// GeneralsMod @feature Dimitar 11/09/2026: added narrower healing subtypes so ArmorSet Percent
+	// coefficients (and thus which KindOf a healer actually affects) can be tuned per healed KindOf,
+	// without touching weapon/AI targeting code. Treated identically to DAMAGE_HEALING everywhere
+	// via IsHealingDamage() below -- see that helper before adding new '== DAMAGE_HEALING' checks.
+	DAMAGE_HEALING_VEHICLE				/*= 38*/,
+	DAMAGE_HEALING_INFANTRY				/*= 39*/,
+	DAMAGE_HEALING_STRUCTURE			/*= 40*/,
+	DAMAGE_HEALING_AIRCRAFT				/*= 41*/,
+
 	// Please note: There is a string array DamageTypeFlags::s_bitNameList[]
 
 	DAMAGE_NUM_TYPES
@@ -124,6 +133,25 @@ inline Bool IsSubdualDamage( DamageType type )
 		case DAMAGE_SUBDUAL_VEHICLE:
 		case DAMAGE_SUBDUAL_BUILDING:
 		case DAMAGE_SUBDUAL_UNRESISTABLE:
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+// GeneralsMod @feature Dimitar 11/09/2026: added to mirror IsSubdualDamage() -- lets a single
+// check stand in for "== DAMAGE_HEALING" everywhere so DAMAGE_HEALING_VEHICLE/INFANTRY/STRUCTURE/
+// AIRCRAFT are treated exactly like plain healing (redirect to attemptHealing, don't count as an
+// attack, don't break stealth, etc.) without hunting down every comparison by hand.
+inline Bool IsHealingDamage( DamageType type )
+{
+	switch( type )
+	{
+		case DAMAGE_HEALING:
+		case DAMAGE_HEALING_VEHICLE:
+		case DAMAGE_HEALING_INFANTRY:
+		case DAMAGE_HEALING_STRUCTURE:
+		case DAMAGE_HEALING_AIRCRAFT:
 			return TRUE;
 	}
 
