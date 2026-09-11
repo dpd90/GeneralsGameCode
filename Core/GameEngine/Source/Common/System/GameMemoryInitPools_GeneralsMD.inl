@@ -237,6 +237,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "PreorderCreate", 32, 32 },
 	{ "SpecialAbility", 512, 32 },
 	{ "SpecialAbilityUpdate", 512, 32 },
+	{ "SwitchStateV2Activate", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, used the same way (short-lived special-power trigger object)
+	{ "SwitchStateV2", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, paired worker for SwitchStateV2Activate
 	{ "MissileLauncherBuildingUpdate", 32, 32 },
 	{ "SquishCollide", 512, 32 },
 	{ "StructureBody", 512, 64 },

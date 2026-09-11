@@ -127,6 +127,8 @@ enum SpecialPowerType CPP_11(: Int)
 
 	SPECIAL_BATTLESHIP_BOMBARDMENT,
 
+	LAZR_SPECIAL_SWITCH_STATE, ///< GeneralsMod @feature Dimitar 09/09/2026: dedicated enum for SwitchStateV2, do not reuse for anything else
+
 	SPECIALPOWER_COUNT,
 	// don't forget to add new strings to SpecialPowerMaskType::s_bitNameList[]
 };

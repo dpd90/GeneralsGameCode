@@ -451,6 +451,8 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/SupplyWarehouseCreate.h
     Include/GameLogic/Module/SupplyWarehouseCripplingBehavior.h
     Include/GameLogic/Module/SupplyWarehouseDockUpdate.h
+    Include/GameLogic/Module/SwitchStateV2.h
+    Include/GameLogic/Module/SwitchStateV2Activate.h
     Include/GameLogic/Module/TechBuildingBehavior.h
     Include/GameLogic/Module/TempWeaponBonusHelper.h
     Include/GameLogic/Module/TensileFormationUpdate.h
@@ -966,6 +968,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/SpecialPower/SpecialAbility.cpp
     Source/GameLogic/Object/SpecialPower/SpecialPowerModule.cpp
     Source/GameLogic/Object/SpecialPower/SpyVisionSpecialPower.cpp
+    Source/GameLogic/Object/SpecialPower/SwitchStateV2Activate.cpp
     Source/GameLogic/Object/Update/AIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/AssaultTransportAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/ChinookAIUpdate.cpp
@@ -1047,6 +1050,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/StickyBombUpdate.cpp
     Source/GameLogic/Object/Update/StructureCollapseUpdate.cpp
     Source/GameLogic/Object/Update/StructureToppleUpdate.cpp
+    Source/GameLogic/Object/Update/SwitchStateV2.cpp
     Source/GameLogic/Object/Update/TensileFormationUpdate.cpp
     Source/GameLogic/Object/Update/ToppleUpdate.cpp
     Source/GameLogic/Object/Update/UpdateModule.cpp

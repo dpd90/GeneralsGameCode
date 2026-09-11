@@ -168,6 +168,7 @@
 #include "GameLogic/Module/SlavedUpdate.h"
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"
 #include "GameLogic/Module/SpecialAbilityUpdate.h"
+#include "GameLogic/Module/SwitchStateV2.h"
 #include "GameLogic/Module/MissileLauncherBuildingUpdate.h"
 #include "GameLogic/Module/StealthDetectorUpdate.h"
 #include "GameLogic/Module/StealthUpdate.h"
@@ -270,6 +271,7 @@
 #endif
 #include "GameLogic/Module/OCLSpecialPower.h"
 #include "GameLogic/Module/SpecialAbility.h"
+#include "GameLogic/Module/SwitchStateV2Activate.h"
 #include "GameLogic/Module/SpyVisionSpecialPower.h"
 #include "GameLogic/Module/CashBountyPower.h"
 #include "GameLogic/Module/CleanupAreaPower.h"
@@ -448,6 +450,7 @@ void ModuleFactory::init()
 	addModule( MobMemberSlavedUpdate );
 	addModule( OCLUpdate );
 	addModule( SpecialAbilityUpdate );
+	addModule( SwitchStateV2 );
 	addModule( MissileLauncherBuildingUpdate );
 	addModule( SupplyCenterProductionExitUpdate );
 	addModule( SupplyCenterDockUpdate );
@@ -552,6 +555,7 @@ void ModuleFactory::init()
 	addModule( OCLSpecialPower );
 	addModule( FireWeaponPower );
 	addModule( SpecialAbility );
+	addModule( SwitchStateV2Activate );
 	addModule( SpyVisionSpecialPower );
 	addModule( CashBountyPower );
 	addModule( CleanupAreaPower );

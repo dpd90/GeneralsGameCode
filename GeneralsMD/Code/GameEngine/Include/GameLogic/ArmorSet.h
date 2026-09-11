@@ -51,6 +51,16 @@ enum ArmorSetType CPP_11(: Int)
 	ARMORSET_CRATE_UPGRADE_ONE, ///< Just like weaponset type from salvage.
 	ARMORSET_CRATE_UPGRADE_TWO,
 
+	///< GeneralsMod @feature Dimitar 10/09/2026: added to mirror WeaponSetType's WEAPONSET_RIDER1-8, feel free to use these for anything
+	ARMORSET_RIDER1,
+	ARMORSET_RIDER2,
+	ARMORSET_RIDER3,
+	ARMORSET_RIDER4,
+	ARMORSET_RIDER5,
+	ARMORSET_RIDER6,
+	ARMORSET_RIDER7,
+	ARMORSET_RIDER8,
+
 	ARMORSET_COUNT
 };
 
