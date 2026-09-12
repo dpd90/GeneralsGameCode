@@ -293,6 +293,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/CrushDie.h
     Include/GameLogic/Module/DamageModule.h
     Include/GameLogic/Module/DamDie.h
+    Include/GameLogic/Module/DecalUpdateV2.h
     Include/GameLogic/Module/DefaultProductionExitUpdate.h
     Include/GameLogic/Module/DefectorSpecialPower.h
     Include/GameLogic/Module/DeletionUpdate.h
@@ -999,6 +1000,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/CheckpointUpdate.cpp
     Source/GameLogic/Object/Update/CleanupHazardUpdate.cpp
     Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
+    Source/GameLogic/Object/Update/DecalUpdateV2.cpp
     Source/GameLogic/Object/Update/DeletionUpdate.cpp
     Source/GameLogic/Object/Update/DemoTrapUpdate.cpp
     Source/GameLogic/Object/Update/DockUpdate/DockUpdate.cpp

@@ -183,6 +183,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "SpectreGunshipDeploymentUpdate", 8, 8 },
 	{ "BaikonurLaunchPower", 4, 4 },
 	{ "RadiusDecalUpdate", 16, 16 },
+	{ "DecalUpdateV2", 32, 16 },///< GeneralsMod @feature Dimitar 12/09/2026: new module, capped by GameData.ini MaxDecalCount (default 32)
 	{ "BattlePlanUpdate", 32, 32 },
 	{ "LifetimeUpdate", 32, 32 },
 	{ "LocomotorSetUpgrade", 512, 128 },

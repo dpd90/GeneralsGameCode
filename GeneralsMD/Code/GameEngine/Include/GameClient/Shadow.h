@@ -174,9 +174,14 @@ inline void Shadow::setOpacity(Int value)
 		if (m_type & SHADOW_ADDITIVE_DECAL)
 		{
 			Real fvalue=(Real)m_opacity/255.0f;
+			// GeneralsMod @bugfix Dimitar 12/09/2026: the original code OR'd all three scaled channels
+			// together without ever shifting Green/Red back into their bits 8-23 -- every channel landed
+			// in bits 0-7 (Blue's own slot), so any Color with equal R/G/B (e.g. white) collapsed to a
+			// pure blue diffuse (alpha=0, red=0, green=0, blue=OR of all three) regardless of the actual
+			// color set -- this is why SHADOW_ADDITIVE_DECAL always rendered blue-tinted.
 			m_diffuse=REAL_TO_INT(((Real)(m_color & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue));
+					|(REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue)) << 8)
+					|(REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue)) << 16);
 		}
 	}
 }
@@ -194,9 +199,14 @@ inline void Shadow::setColor(Color value)
 		if (m_type & SHADOW_ADDITIVE_DECAL)
 		{
 			Real fvalue=(Real)m_opacity/255.0f;
+			// GeneralsMod @bugfix Dimitar 12/09/2026: the original code OR'd all three scaled channels
+			// together without ever shifting Green/Red back into their bits 8-23 -- every channel landed
+			// in bits 0-7 (Blue's own slot), so any Color with equal R/G/B (e.g. white) collapsed to a
+			// pure blue diffuse (alpha=0, red=0, green=0, blue=OR of all three) regardless of the actual
+			// color set -- this is why SHADOW_ADDITIVE_DECAL always rendered blue-tinted.
 			m_diffuse=REAL_TO_INT(((Real)(m_color & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue));
+					|(REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue)) << 8)
+					|(REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue)) << 16);
 		}
 	}
 }
