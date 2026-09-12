@@ -358,6 +358,7 @@ public:
 
 	Int m_maxParticleCount;						///< maximum number of particles that can exist
 	Int m_maxFieldParticleCount;			///< maximum number of field-type particles that can exist (roughly)
+	Int m_maxDecalCount;							///< GeneralsMod @feature Dimitar 12/09/2026: max concurrent DecalUpdateV2 decals (global, not per-category)
 	WeaponBonusSet* m_weaponBonusSet;
 	Real m_healthBonus[LEVEL_COUNT];			///< global bonuses to health for veterancy.
 	Real m_defaultStructureRubbleHeight;	///< for rubbled structures, compress height to this if none specified

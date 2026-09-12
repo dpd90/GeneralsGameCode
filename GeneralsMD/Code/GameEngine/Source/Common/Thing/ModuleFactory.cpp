@@ -146,6 +146,7 @@
 #include "GameLogic/Module/BattlePlanUpdate.h"
 #include "GameLogic/Module/LifetimeUpdate.h"
 #include "GameLogic/Module/RadiusDecalUpdate.h"
+#include "GameLogic/Module/DecalUpdateV2.h"
 #include "GameLogic/Module/AutoDepositUpdate.h"
 #include "GameLogic/Module/MissileAIUpdate.h"
 #include "GameLogic/Module/NeutronMissileUpdate.h"
@@ -406,6 +407,7 @@ void ModuleFactory::init()
 	addModule( EnemyNearUpdate );
 	addModule( LifetimeUpdate );
 	addModule( RadiusDecalUpdate );
+	addModule( DecalUpdateV2 );
 	addModule( EMPUpdate );
   addModule( LeafletDropBehavior );
 	addModule( AutoDepositUpdate );
