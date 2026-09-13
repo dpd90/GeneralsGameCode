@@ -357,6 +357,7 @@ public:
 
 	Int m_maxParticleCount;						///< maximum number of particles that can exist
 	Int m_maxFieldParticleCount;			///< maximum number of field-type particles that can exist (roughly)
+	AsciiString m_scorchTexture;				///< GeneralsMod @feature Dimitar 13/09/2026: texture atlas used for terrain scorch marks (was hardcoded "EXScorch01.tga")
 	WeaponBonusSet* m_weaponBonusSet;
 	Real m_healthBonus[LEVEL_COUNT];			///< global bonuses to health for veterancy.
 	Real m_defaultStructureRubbleHeight;	///< for rubbled structures, compress height to this if none specified

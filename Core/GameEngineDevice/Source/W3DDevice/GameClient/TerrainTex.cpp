@@ -1087,9 +1087,18 @@ void CloudMapTerrainTextureClass::restore()
 //=============================================================================
 /** Constructor. Calls parent constructor to load the .tga texture. */
 //=============================================================================
-/// @todo - get "EXScorch01.tga" from not hard coded location.
+// GeneralsMod @feature Dimitar 13/09/2026: texture name now comes from GameData.ini's
+// ScorchTexture field (see GlobalData::m_scorchTexture) instead of being hardcoded, falling back
+// to the original "EXScorch01.tga" if TheGlobalData isn't available yet or the field is empty.
+static const char* getScorchTextureName()
+{
+	if (TheGlobalData != nullptr && TheGlobalData->m_scorchTexture.isNotEmpty())
+		return TheGlobalData->m_scorchTexture.str();
+	return "EXScorch01.tga";
+}
+
 ScorchTextureClass::ScorchTextureClass(MipCountType mipLevelCount) :
-	TextureClass("EXScorch01.tga","EXScorch01.tga", mipLevelCount )
+	TextureClass(getScorchTextureName(),getScorchTextureName(), mipLevelCount )
 // Hack to disable texture reduction.
 //	TextureClass("EXScorch01.tga","EXScorch01.tga", mipLevelCount,WW3D_FORMAT_UNKNOWN,true,false)
 {

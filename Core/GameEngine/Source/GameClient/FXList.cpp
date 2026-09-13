@@ -452,7 +452,10 @@ public:
 			Int scorch = m_scorch;
 			if (scorch < 0)
 			{
-				scorch = GameClientRandomValue( SCORCH_1, SCORCH_4 );
+				// GeneralsMod @feature Dimitar 13/09/2026: widened from SCORCH_1..SCORCH_4 now that the
+				// 4x4 atlas has more real scorch cells to pick from. SHADOW_SCORCH sits well outside this
+				// range (it's the last enum value now, see GameType.h) so it can never turn up here.
+				scorch = GameClientRandomValue( SCORCH_1, SCORCH_8 );
 			}
 			TheGameClient->addScorch(primary, m_radius, (Scorches)scorch);
 		}
@@ -480,12 +483,28 @@ protected:
 
 	static void parseScorchType( INI* ini, void *instance, void *store, const void* /*userData*/ )
 	{
+		// GeneralsMod @feature Dimitar 13/09/2026: 4x4/16-cell atlas -- SCORCH_1..SCORCH_15 are one
+		// clean contiguous block (SCORCH_5 fills the historical gap the old layout left for
+		// SHADOW_SCORCH), which is now the very last cell instead of sitting in the middle -- see
+		// GameType.h's Scorches enum for why. This lets doFXPos() below pick a RANDOM sub-range of
+		// real scorch types without ever needing to skip over the shadow-blob slot.
 		static const LookupListRec scorchTypeNames[] =
 		{
 			{ "SCORCH_1",				SCORCH_1 },
 			{ "SCORCH_2",				SCORCH_2 },
 			{ "SCORCH_3",				SCORCH_3 },
 			{ "SCORCH_4",				SCORCH_4 },
+			{ "SCORCH_5",				SCORCH_5 },
+			{ "SCORCH_6",				SCORCH_6 },
+			{ "SCORCH_7",				SCORCH_7 },
+			{ "SCORCH_8",				SCORCH_8 },
+			{ "SCORCH_9",				SCORCH_9 },
+			{ "SCORCH_10",			SCORCH_10 },
+			{ "SCORCH_11",			SCORCH_11 },
+			{ "SCORCH_12",			SCORCH_12 },
+			{ "SCORCH_13",			SCORCH_13 },
+			{ "SCORCH_14",			SCORCH_14 },
+			{ "SCORCH_15",			SCORCH_15 },
 			{ "SHADOW_SCORCH",	SHADOW_SCORCH },
 			{ "RANDOM",					-1 },
 			{ nullptr, 0 }

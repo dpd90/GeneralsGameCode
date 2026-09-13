@@ -45,6 +45,7 @@
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 #include "Common/GlobalData.h"
+#include "Common/LocalFileSystem.h"
 #include "Common/MapObject.h"
 #include "Common/Registry.h"
 #include "W3DDevice/GameClient/W3DFileSystem.h"
@@ -215,6 +216,17 @@ char const * GameFileClass::Set_Name( char const *filename )
 
 		// see if the file exists
 		m_fileExists = TheFileSystem->doesFileExist( m_filePath );
+
+		// GeneralsMod @debug Dimitar 12/09/2026: temporary diagnostic to trace the local-vs-archive
+		// resolution for the scorch texture override investigation -- safe to remove once resolved.
+		if( strstr(filename, "corch") != nullptr )
+		{
+			DEBUG_LOG(("GeneralsMod @debug: Set_Name candidate '%s' -> local=%d archive=%d overallExists=%d",
+				m_filePath,
+				(int)(TheLocalFileSystem ? TheLocalFileSystem->doesFileExist(m_filePath) : -1),
+				(int)(TheArchiveFileSystem ? TheArchiveFileSystem->doesFileExist(m_filePath) : -1),
+				(int)m_fileExists));
+		}
 	}
 
 
