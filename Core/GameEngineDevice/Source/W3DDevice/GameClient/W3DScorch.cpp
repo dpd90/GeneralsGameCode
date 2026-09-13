@@ -26,6 +26,33 @@
 #include "W3DDevice/GameClient/WorldHeightMap.h"
 #include "WW3D2/dx8wrapper.h"
 
+namespace
+{
+	// GeneralsMod @feature Dimitar 13/09/2026: replaces the old hardcoded "1.5" pitch constant that
+	// used to live inline in writeScorchToBuffer(). That constant forced a fixed 50%-of-cell-width
+	// gap between cells (wasteful -- far more than mipmap-bleed protection actually needs), and it
+	// only produced a valid non-overflowing layout for the specific case of SCORCH_PER_ROW == 3.
+	//
+	// This version uses a small FIXED-PIXEL gap instead (standard texture-atlas practice: just
+	// enough to guard against mip-level box-filter bleed between neighboring cells), applied
+	// uniformly between cells AND around the outer border. The outer border matters because this
+	// texture uses TEXTURE_ADDRESS_REPEAT (TextureFilterClass's default, never overridden here) --
+	// without it, the left/top edge cells could bleed into the right/bottom edge cells at low mip
+	// levels, exactly like any two adjacent interior cells would without a gap between them.
+	//
+	// SCORCH_TEXTURE_SIZE_PIXELS must match whatever pixel size the actual ScorchTexture (see
+	// GlobalData::m_scorchTexture, default "EXScorch01.tga") is authored at, and SCORCH_GRID_DIM
+	// must always equal W3DScorch::SCORCH_PER_ROW. Update both together if either changes.
+	const Real SCORCH_TEXTURE_SIZE_PIXELS = 512.0f;
+	const Real SCORCH_TEXTURE_GAP_PIXELS = 4.0f;
+	const Int SCORCH_GRID_DIM = 4;
+
+	const Real SCORCH_GAP_NORM = SCORCH_TEXTURE_GAP_PIXELS / SCORCH_TEXTURE_SIZE_PIXELS;
+	// N cells + (N+1) gaps (one border gap on each outer edge, plus N-1 gaps between cells) == 1.0
+	const Real SCORCH_CELL_NORM = (1.0f - (SCORCH_GRID_DIM + 1) * SCORCH_GAP_NORM) / SCORCH_GRID_DIM;
+	const Real SCORCH_PITCH_NORM = SCORCH_CELL_NORM + SCORCH_GAP_NORM;
+}
+
 W3DScorch::W3DScorch(bool deduplicateScorches)
   : m_vertexScorch(nullptr)
   , m_indexScorch(nullptr)
@@ -179,6 +206,23 @@ W3DScorch::WriteScorchResult W3DScorch::writeScorchToBuffer(const TScorch& scorc
 	Int type = scorch.scorchType;
 	Real amtToFloat = MAP_HEIGHT_SCALE / 10;
 
+	// GeneralsMod @feature Dimitar 12/09/2026: rotate the UV sampling per-mark so repeated uses of
+	// the same scorch texture do not all look identically oriented. The angle is derived from the
+	// mark's own world position (a cheap positional hash) rather than drawn from an RNG, so it needs
+	// no new stored state, is stable across save/load, and never affects sim determinism -- this file
+	// is render-only. Only the UV lookup rotates; vertex world positions/heights are untouched.
+	Real angleSeed = loc.X * 12.9898f + loc.Y * 78.233f;
+	Real rotationAngle = fmodf(fabsf(sinf(angleSeed)) * 43758.5453f, 1.0f) * (2.0f * WWMATH_PI);
+	Real cosT = cosf(rotationAngle);
+	Real sinT = sinf(rotationAngle);
+
+	// GeneralsMod @feature Dimitar 13/09/2026: fixed-pixel-gap cell placement (see the packing
+	// constants at the top of this file) replaces the old "(type % SCORCH_PER_ROW) * 1.5f" pitch.
+	Int col = type % SCORCH_PER_ROW;
+	Int row = type / SCORCH_PER_ROW;
+	Real cellStartU = SCORCH_GAP_NORM + col * SCORCH_PITCH_NORM;
+	Real cellStartV = SCORCH_GAP_NORM + row * SCORCH_PITCH_NORM;
+
 	Int minX = REAL_TO_INT_FLOOR((loc.X - radius) / MAP_XY_FACTOR);
 	Int minY = REAL_TO_INT_FLOOR((loc.Y - radius) / MAP_XY_FACTOR);
 	if (minX < -map.getBorderSizeInline())
@@ -221,13 +265,26 @@ W3DScorch::WriteScorchResult W3DScorch::writeScorchToBuffer(const TScorch& scorc
 		{
 			curVb->diffuse = diffuse;
 			Real theZ = amtToFloat + getMapHeight(map, i, j);
-			// The scorchmarks are spaced out by 1.5 in the texture.
-			Real uOffset = (type % SCORCH_PER_ROW) * 1.5f;
-			Real vOffset = (type / SCORCH_PER_ROW) * 1.5f;
 			Real X = i * MAP_XY_FACTOR;
 			Real Y = j * MAP_XY_FACTOR;
-			curVb->u1 = (uOffset + 0.5f + (X - loc.X) / (2 * radius)) / (SCORCH_PER_ROW + 1);
-			curVb->v1 = (vOffset + 0.5f + (Y - loc.Y) / (2 * radius)) / (SCORCH_PER_ROW + 1);
+			Real dx = X - loc.X;
+			Real dy = Y - loc.Y;
+			Real rotatedDx = dx * cosT - dy * sinT;
+			Real rotatedDy = dx * sinT + dy * cosT;
+			// GeneralsMod @bugfix Dimitar 13/09/2026: the bounding box above deliberately overshoots the
+			// true radius (ceil() to the next terrain grid line, plus an extra +1) -- pre-existing, and
+			// harmless under the old ~50%-of-cell gap, but our much tighter fixed-pixel gap is nowhere
+			// near big enough to absorb it (worst case ~2 terrain cells = ~20 world units, which for a
+			// small-radius scorch is a large fraction of its own cell). Clamp so no vertex can ever
+			// produce a UV outside the cell it was assigned, regardless of how far dx/dy overshoot.
+			Real localU = (rotatedDx / (2 * radius) + 0.5f) * SCORCH_CELL_NORM;
+			Real localV = (rotatedDy / (2 * radius) + 0.5f) * SCORCH_CELL_NORM;
+			if (localU < 0.0f) localU = 0.0f;
+			else if (localU > SCORCH_CELL_NORM) localU = SCORCH_CELL_NORM;
+			if (localV < 0.0f) localV = 0.0f;
+			else if (localV > SCORCH_CELL_NORM) localV = SCORCH_CELL_NORM;
+			curVb->u1 = cellStartU + localU;
+			curVb->v1 = cellStartV + localV;
 			curVb->x = X;
 			curVb->y = Y;
 			curVb->z = theZ;
