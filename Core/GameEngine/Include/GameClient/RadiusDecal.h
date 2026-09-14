@@ -101,7 +101,14 @@ public:
 	// please note: it is very important, for game/net sync reasons, to ensure that
 	// a valid radiusdecal is created, even if will not be visible to the local player,
 	// since some logic makes decisions based on this.
-	void createRadiusDecal(const Coord3D& pos, Real radius, const Player* owningPlayer, RadiusDecal& result) const;
+	// GeneralsMod @feature Dimitar 14/09/2026: allowOffscreenCulling defaults FALSE, preserving
+	// every existing caller's behavior unchanged (RadiusDecalUpdate, SpectreGunshipUpdate,
+	// NeutronMissileUpdate, DeliverPayloadAIUpdate, DynamicShroudClearingRangeUpdate, InGameUI's
+	// radius cursors, ObjectCreationList's delivery decal, etc. -- all targeting/area indicators
+	// that must stay visible regardless of the local player's own vision/shroud). Only
+	// DecalUpdateV2 passes TRUE. See Shadow::ShadowTypeInfo::m_allowOffscreenCulling for the full
+	// rationale -- this parameter just forwards into that field.
+	void createRadiusDecal(const Coord3D& pos, Real radius, const Player* owningPlayer, RadiusDecal& result, Bool allowOffscreenCulling = FALSE) const;
 
 	static void parseRadiusDecalTemplate(INI* ini, void *instance, void * store, const void* /*userData*/);
 

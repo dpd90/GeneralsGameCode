@@ -35,9 +35,11 @@
 #include "Common/Xfer.h"
 
 #include "GameClient/ControlBar.h"
+#include "GameClient/FXList.h"
 
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object.h"
+#include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/Weapon.h"
 #include "GameLogic/WeaponStatus.h"
 
@@ -62,8 +64,14 @@ SwitchStateInfo::SwitchStateInfo()
 SwitchStateV2ModuleData::SwitchStateV2ModuleData()
 {
 	m_specialPowerTemplate = nullptr;
+	m_conditionState = MODELCONDITION_INVALID;
 	m_lifetimeFrames = 0;
-	m_weaponTemplate = nullptr;
+	m_weaponInTemplate = nullptr;
+	m_weaponOutTemplate = nullptr;
+	m_oclIn = nullptr;
+	m_oclOut = nullptr;
+	m_fxListIn = nullptr;
+	m_fxListOut = nullptr;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -106,8 +114,14 @@ SwitchStateV2ModuleData::SwitchStateV2ModuleData()
 		{ "SpecialPowerTemplate",	INI::parseSpecialPowerTemplate,	nullptr, offsetof( SwitchStateV2ModuleData, m_specialPowerTemplate ) },
 		{ "DefaultState",					parseStateInfo,										nullptr, offsetof( SwitchStateV2ModuleData, m_defaultState ) },
 		{ "AlteredState",					parseStateInfo,										nullptr, offsetof( SwitchStateV2ModuleData, m_alteredState ) },
+		{ "ConditionStateType",		INI::parseIndexList,	ModelConditionFlags::getBitNames(), offsetof( SwitchStateV2ModuleData, m_conditionState ) },
 		{ "Lifetime",							INI::parseDurationUnsignedInt,		nullptr, offsetof( SwitchStateV2ModuleData, m_lifetimeFrames ) },
-		{ "Weapon",								INI::parseWeaponTemplate,				nullptr, offsetof( SwitchStateV2ModuleData, m_weaponTemplate ) },
+		{ "WeaponIn",							INI::parseWeaponTemplate,				nullptr, offsetof( SwitchStateV2ModuleData, m_weaponInTemplate ) },
+		{ "WeaponOut",						INI::parseWeaponTemplate,				nullptr, offsetof( SwitchStateV2ModuleData, m_weaponOutTemplate ) },
+		{ "OCLIn",								INI::parseObjectCreationList,		nullptr, offsetof( SwitchStateV2ModuleData, m_oclIn ) },
+		{ "OCLOut",								INI::parseObjectCreationList,		nullptr, offsetof( SwitchStateV2ModuleData, m_oclOut ) },
+		{ "FXListIn",							INI::parseFXList,								nullptr, offsetof( SwitchStateV2ModuleData, m_fxListIn ) },
+		{ "FXListOut",						INI::parseFXList,								nullptr, offsetof( SwitchStateV2ModuleData, m_fxListOut ) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	p.add(dataFieldParse);
@@ -120,12 +134,20 @@ SwitchStateV2::SwitchStateV2( Thing *thing, const ModuleData *moduleData ) : Spe
 	m_isAltered = FALSE;
 	m_revertFrame = 0;
 
-	m_weapon = nullptr;
-	const WeaponTemplate *weaponTemplate = getSwitchStateV2ModuleData()->m_weaponTemplate;
-	if( weaponTemplate )
+	const SwitchStateV2ModuleData *data = getSwitchStateV2ModuleData();
+
+	m_weaponIn = nullptr;
+	if( data->m_weaponInTemplate )
 	{
-		m_weapon = TheWeaponStore->allocateNewWeapon( weaponTemplate, PRIMARY_WEAPON );
-		m_weapon->loadAmmoNow( getObject() );
+		m_weaponIn = TheWeaponStore->allocateNewWeapon( data->m_weaponInTemplate, PRIMARY_WEAPON );
+		m_weaponIn->loadAmmoNow( getObject() );
+	}
+
+	m_weaponOut = nullptr;
+	if( data->m_weaponOutTemplate )
+	{
+		m_weaponOut = TheWeaponStore->allocateNewWeapon( data->m_weaponOutTemplate, PRIMARY_WEAPON );
+		m_weaponOut->loadAmmoNow( getObject() );
 	}
 }
 
@@ -133,7 +155,8 @@ SwitchStateV2::SwitchStateV2( Thing *thing, const ModuleData *moduleData ) : Spe
 // ------------------------------------------------------------------------------------------------
 SwitchStateV2::~SwitchStateV2()
 {
-	deleteInstance( m_weapon );
+	deleteInstance( m_weaponIn );
+	deleteInstance( m_weaponOut );
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -145,10 +168,24 @@ SwitchStateV2::~SwitchStateV2()
 void SwitchStateV2::applyState( Bool goToAltered )
 {
 	const SwitchStateV2ModuleData *data = getSwitchStateV2ModuleData();
+	Object *obj = getObject();
+
+	// GeneralsMod @feature Dimitar 14/09/2026: ConditionStateType, when given, REPLACES
+	// DefaultState/AlteredState entirely -- toggle just the one flag and return, completely ignoring
+	// model condition/weapon set/armor set/status bit/command set/locomotor set from both states.
+	if( data->m_conditionState != MODELCONDITION_INVALID )
+	{
+		if( goToAltered )
+			obj->setModelConditionState( data->m_conditionState );
+		else
+			obj->clearModelConditionFlags( MAKE_MODELCONDITION_MASK( data->m_conditionState ) );
+
+		m_isAltered = goToAltered;
+		return;
+	}
+
 	const SwitchStateInfo &target = goToAltered ? data->m_alteredState : data->m_defaultState;
 	const SwitchStateInfo &previous = goToAltered ? data->m_defaultState : data->m_alteredState;
-
-	Object *obj = getObject();
 
 	// Model condition
 	if( previous.m_modelCondition != target.m_modelCondition )
@@ -194,6 +231,47 @@ void SwitchStateV2::applyState( Bool goToAltered )
 }
 
 // ------------------------------------------------------------------------------------------------
+/** Fires WeaponIn/OCLIn/FXListIn once (at our own position). Called whenever we switch TO
+	* AlteredState -- both from the manual button (initiateIntentToDoSpecialPower) and from automatic
+	* damage-driven triggers (notifyQualifyingDamage). Each is independently optional and safe to
+	* call redundantly: the weapon naturally rate-limits to its own reload time, and OCL/FXList are
+	* simply skipped if not configured. */
+// ------------------------------------------------------------------------------------------------
+void SwitchStateV2::fireInEffects()
+{
+	const SwitchStateV2ModuleData *data = getSwitchStateV2ModuleData();
+	Object *obj = getObject();
+
+	if( m_weaponIn && m_weaponIn->getStatus() == READY_TO_FIRE )
+		m_weaponIn->forceFireWeapon( obj, obj->getPosition() );
+
+	if( data->m_oclIn )
+		ObjectCreationList::create( data->m_oclIn, obj, nullptr );
+
+	if( data->m_fxListIn )
+		FXList::doFXObj( data->m_fxListIn, obj );
+}
+
+// ------------------------------------------------------------------------------------------------
+/** Fires WeaponOut/OCLOut/FXListOut once (at our own position). Called whenever we switch back TO
+	* DefaultState -- from the manual button toggling back, or from Lifetime auto-expiry in update(). */
+// ------------------------------------------------------------------------------------------------
+void SwitchStateV2::fireOutEffects()
+{
+	const SwitchStateV2ModuleData *data = getSwitchStateV2ModuleData();
+	Object *obj = getObject();
+
+	if( m_weaponOut && m_weaponOut->getStatus() == READY_TO_FIRE )
+		m_weaponOut->forceFireWeapon( obj, obj->getPosition() );
+
+	if( data->m_oclOut )
+		ObjectCreationList::create( data->m_oclOut, obj, nullptr );
+
+	if( data->m_fxListOut )
+		FXList::doFXObj( data->m_fxListOut, obj );
+}
+
+// ------------------------------------------------------------------------------------------------
 /** Called by our companion SwitchStateV2Activate module (via the base SpecialPowerModule's
 	* doSpecialPower -> initiateIntentToDoSpecialPower hand-off) whenever the button is pressed.
 	* This is a pure self-toggle -- no target object, position, or waypoint is used. */
@@ -213,11 +291,11 @@ Bool SwitchStateV2::initiateIntentToDoSpecialPower( const SpecialPowerTemplate *
 	Bool goingToAltered = !m_isAltered;
 	applyState( goingToAltered );
 
-	// Fire our configured weapon (if any) once per activation, regardless of which direction we
-	// just switched. Mirrors FireWeaponUpdate's own readiness check, but fires only this once
-	// instead of every update() tick.
-	if( m_weapon && m_weapon->getStatus() == READY_TO_FIRE )
-		m_weapon->forceFireWeapon( getObject(), getObject()->getPosition() );
+	// Fire the effects for whichever direction we just switched.
+	if( goingToAltered )
+		fireInEffects();
+	else
+		fireOutEffects();
 
 	if( goingToAltered && data->m_lifetimeFrames > 0 )
 	{
@@ -257,11 +335,10 @@ Bool SwitchStateV2::notifyQualifyingDamage( const SpecialPowerTemplate *specialP
 
 	applyState( TRUE );	// idempotent if we're already Altered -- just re-affirms it
 
-	// Fire our configured weapon (if any), same readiness check as the manual activation path. This
-	// naturally rate-limits repeated firing to the weapon's own reload time even under sustained
-	// qualifying damage.
-	if( m_weapon && m_weapon->getStatus() == READY_TO_FIRE )
-		m_weapon->forceFireWeapon( getObject(), getObject()->getPosition() );
+	// Fire the entry effects, same as the manual activation path. WeaponIn naturally rate-limits
+	// to its own reload time even under sustained qualifying damage; OCLIn/FXListIn, if configured,
+	// simply fire again every call -- keep that in mind if repeated qualifying damage is expected.
+	fireInEffects();
 
 	if( data->m_lifetimeFrames > 0 )
 	{
@@ -283,6 +360,7 @@ UpdateSleepTime SwitchStateV2::update()
 		if( TheGameLogic->getFrame() >= m_revertFrame )
 		{
 			applyState( FALSE );	// time's up -- revert to DefaultState automatically
+			fireOutEffects();
 			m_revertFrame = 0;
 			return UPDATE_SLEEP_FOREVER;
 		}
@@ -304,12 +382,15 @@ void SwitchStateV2::crc( Xfer *xfer )
 /** Xfer method
 	* Version Info:
 	* 1: Initial version
-	* 2: added optional Weapon field (GeneralsMod) */
+	* 2: added optional Weapon field (GeneralsMod)
+	* 3: GeneralsMod -- replaced the single Weapon field with WeaponIn/WeaponOut (paired with new
+	*    OCLIn/OCLOut/FXListIn/FXListOut fields), matching ShieldGeneratorUpdateV2's entry/exit
+	*    effect convention. Does NOT preserve compatibility with saves made under versions 1-2. */
 // ------------------------------------------------------------------------------------------------
 void SwitchStateV2::xfer( Xfer *xfer )
 {
 	// version
-	XferVersion currentVersion = 2;
+	XferVersion currentVersion = 3;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -319,8 +400,8 @@ void SwitchStateV2::xfer( Xfer *xfer )
 	xfer->xferBool( &m_isAltered );
 	xfer->xferUnsignedInt( &m_revertFrame );
 
-	if( version >= 2 )
-		xfer->xferSnapshot( m_weapon );
+	xfer->xferSnapshot( m_weaponIn );
+	xfer->xferSnapshot( m_weaponOut );
 }
 
 // ------------------------------------------------------------------------------------------------

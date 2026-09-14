@@ -29,6 +29,16 @@
 //         Lifetime frames; a Lifetime of 0 means the switch is permanent until manually toggled
 //         back.
 //
+//         GeneralsMod @feature Dimitar 14/09/2026: if ConditionStateType is given in INI, this
+//         module switches into a much simpler mode instead -- DefaultState/AlteredState are
+//         completely ignored (model condition, weapon set, armor set, status bit, command set
+//         override, locomotor set all stay untouched), and toggling just sets/clears that one
+//         ModelConditionFlagType flag. Everything else about the module (WeaponIn/Out, OCLIn/Out,
+//         FXListIn/Out, Lifetime, the button/damage triggers) works identically either way -- this
+//         is purely an alternate, cheaper way to drive the "what changes" half of the module, for
+//         cases that only ever needed a single condition flag and don't want to fill out two full
+//         SwitchStateInfo blocks to get it.
+//
 //         This module holds the state and does the actual work. It cannot also be what the
 //         CommandButton (Command = SPECIAL_POWER) talks to directly, because Object::doSpecialPower
 //         only ever looks for a module satisfying SpecialPowerModuleInterface (getSpecialPower()),
@@ -60,6 +70,8 @@ enum ObjectStatusType CPP_11(: Int);
 enum LocomotorSetType CPP_11(: Int);
 class WeaponTemplate;
 class Weapon;
+class FXList;
+class ObjectCreationList;
 
 //-------------------------------------------------------------------------------------------------
 // One full configuration for the unit -- everything SwitchStateV2 is allowed to change about the
@@ -86,8 +98,14 @@ public:
 	const SpecialPowerTemplate*	m_specialPowerTemplate;	///< must match the SpecialPowerTemplate on the companion SwitchStateV2Activate module
 	SwitchStateInfo								m_defaultState;
 	SwitchStateInfo								m_alteredState;
+	ModelConditionFlagType				m_conditionState;					///< optional; if not MODELCONDITION_INVALID, completely REPLACES DefaultState/AlteredState -- toggling just sets/clears this one flag instead. MODELCONDITION_INVALID (default) means "not given in INI", i.e. use DefaultState/AlteredState as normal.
 	UnsignedInt										m_lifetimeFrames;					///< 0 = permanent until manually toggled back; otherwise, frames (parsed from milliseconds) AlteredState lasts before auto-reverting
-	const WeaponTemplate*				m_weaponTemplate;				///< optional; fired once (at our own position) every time we are activated by the companion SwitchStateV2Activate button. nullptr if not given in INI.
+	const WeaponTemplate*				m_weaponInTemplate;			///< optional; fired once (at our own position) every time we switch TO AlteredState. nullptr if not given in INI.
+	const WeaponTemplate*				m_weaponOutTemplate;		///< optional; fired once (at our own position) every time we switch back TO DefaultState. nullptr if not given in INI.
+	const ObjectCreationList*		m_oclIn;							///< optional; created once (at our own position) every time we switch TO AlteredState. nullptr if not given in INI.
+	const ObjectCreationList*		m_oclOut;							///< optional; created once (at our own position) every time we switch back TO DefaultState. nullptr if not given in INI.
+	const FXList*								m_fxListIn;						///< optional; played once (at our own position) every time we switch TO AlteredState. nullptr if not given in INI.
+	const FXList*								m_fxListOut;					///< optional; played once (at our own position) every time we switch back TO DefaultState. nullptr if not given in INI.
 
 	SwitchStateV2ModuleData();
 
@@ -121,8 +139,8 @@ public:
 	// initiateIntentToDoSpecialPower() above (which always TOGGLES, for the manual button), this
 	// always drives us TOWARD AlteredState: if Lifetime is 0 (permanent), it is a one-time switch --
 	// once Altered, further calls are a no-op and we never auto-revert. If Lifetime > 0, every call
-	// (whether we're currently Default or already Altered) re-applies AlteredState, re-fires the
-	// configured Weapon if one is ready, and restarts the revert countdown from now -- so sustained
+	// (whether we're currently Default or already Altered) re-applies AlteredState, re-fires
+	// WeaponIn/OCLIn/FXListIn (each idempotent/self-rate-limiting), and restarts the revert countdown from now -- so sustained
 	// qualifying damage keeps us Altered indefinitely and we only revert once damage stops coming in
 	// for a full Lifetime. See SwitchStateV2.h's file comment for why this can't just reuse the
 	// button's toggle path.
@@ -139,11 +157,14 @@ public:
 protected:
 
 	void applyState( Bool goToAltered );	///< sets everything for the target state, clearing whatever the other state would have set first
+	void fireInEffects();	///< fires WeaponIn/OCLIn/FXListIn once (at our own position) -- called whenever we switch TO AlteredState
+	void fireOutEffects();	///< fires WeaponOut/OCLOut/FXListOut once (at our own position) -- called whenever we switch back TO DefaultState
 
 private:
 
 	Bool					m_isAltered;		///< which of the two states we're currently in
 	UnsignedInt		m_revertFrame;	///< absolute frame to auto-revert on; 0 = no revert scheduled
-	Weapon*				m_weapon;		///< allocated from m_weaponTemplate in the constructor; nullptr if no Weapon was given in INI
+	Weapon*				m_weaponIn;		///< allocated from m_weaponInTemplate in the constructor; nullptr if no WeaponIn was given in INI
+	Weapon*				m_weaponOut;	///< allocated from m_weaponOutTemplate in the constructor; nullptr if no WeaponOut was given in INI
 
 };

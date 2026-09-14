@@ -2769,6 +2769,39 @@ void W3DModelDraw::setTerrainDecal(TerrainDecalType type)
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 14/09/2026: sibling to setTerrainDecal() above -- identical
+// object-bound addDecal() call (same free culling/shroud behavior), but the texture name, size,
+// and now style come straight from the caller (PersistentDecalUpdateV2's own INI data) instead of
+// the fixed TerrainDecalTextureName[] table or the ThingTemplate's ShadowTexture/ShadowSizeX/Y.
+// Reuses the same m_terrainDecal slot -- only one decal (of either kind) per drawable at a time.
+void W3DModelDraw::setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style)
+{
+	if (m_terrainDecal)
+		m_terrainDecal->release();
+
+	m_terrainDecal = nullptr;
+
+	if (textureName.isEmpty())
+		//turning off the decal on this object.
+		return;
+
+	//create a new terrain decal
+	Shadow::ShadowTypeInfo decalInfo;
+	decalInfo.allowUpdates = FALSE;	//shadow image will never update
+	decalInfo.allowWorldAlign = TRUE;	//shadow image will wrap around world objects
+	decalInfo.m_type = style;	//GeneralsMod @feature Dimitar 14/09/2026: caller-chosen (SHADOW_ALPHA_DECAL or SHADOW_ADDITIVE_DECAL), was hardcoded to SHADOW_ALPHA_DECAL
+	strlcpy(decalInfo.m_ShadowName, textureName.str(), ARRAY_SIZE(decalInfo.m_ShadowName));
+	decalInfo.m_sizeX = sizeX;
+	decalInfo.m_sizeY = sizeY;
+	if (TheProjectedShadowManager)
+		m_terrainDecal = TheProjectedShadowManager->addDecal(m_renderObject,&decalInfo);
+	if (m_terrainDecal)
+	{	m_terrainDecal->enableShadowInvisible(m_fullyObscuredByShroud);
+		m_terrainDecal->enableShadowRender(m_shadowEnabled);
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 void W3DModelDraw::setTerrainDecalSize(Real x, Real y)
 {
 	if (m_terrainDecal)

@@ -50,6 +50,7 @@ class View;
 class Locomotor;
 class Anim2D;
 class Shadow;
+enum ShadowType : Int;	///<GeneralsMod @feature Dimitar 14/09/2026
 class ModuleInfo;
 class Anim2DTemplate;
 class Image;
@@ -330,6 +331,13 @@ public:
 	void setTerrainDecal(TerrainDecalType type);	///<decal that is to appear under the drawable
 	void setTerrainDecalSize(Real x, Real y);
 	void setTerrainDecalFadeTarget(Real target, Real rate = 0.1f);
+
+	// GeneralsMod @feature Dimitar 14/09/2026: see DrawModule::setPersistentDecal() for the
+	// rationale -- an arbitrary, INI-authored ground decal, same rendering path as setTerrainDecal
+	// above (object-bound projected decal: free frustum/occlusion culling + shroud awareness).
+	// style: SHADOW_ALPHA_DECAL or SHADOW_ADDITIVE_DECAL (ShadowType, Shadow.h), no default -- see
+	// DrawModule::setPersistentDecal() for why.
+	void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style);
 
 	Object *getObject() { return m_object; }								///< return object ID bound to this drawble
 	const Object *getObject() const { return m_object; }		///< return object ID bound to this drawble

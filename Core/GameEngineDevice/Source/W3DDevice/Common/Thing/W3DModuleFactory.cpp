@@ -48,6 +48,9 @@
 #include "W3DDevice/GameClient/Module/W3DTracerDraw.h"
 #include "W3DDevice/GameClient/Module/W3DTreeDraw.h"
 #include "W3DDevice/GameClient/Module/W3DPropDraw.h"
+#if RTS_ZEROHOUR
+#include "W3DDevice/GameClient/Module/W3DPersistentAnimModelDraw.h"///< GeneralsMod @feature Dimitar 13/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
+#endif
 
 //-------------------------------------------------------------------------------------------------
 /** Initialize method */
@@ -81,6 +84,12 @@ void W3DModuleFactory::init()
 #if !(RTS_GENERALS && RETAIL_COMPATIBLE_CRC)
 	addModule( W3DTreeDraw );
 	addModule( W3DPropDraw );
+#if RTS_ZEROHOUR
+	// GeneralsMod @feature Dimitar 13/09/2026: this class only exists under GeneralsMD/, so it must
+	// stay guarded here -- this factory file is shared with the base Generals build, which has no
+	// copy of the header/source and would fail to compile without this #if.
+	addModule( W3DPersistentAnimModelDraw );
+#endif
 #endif
 
 }

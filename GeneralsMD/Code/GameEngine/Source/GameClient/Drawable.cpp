@@ -844,6 +844,18 @@ void Drawable::setTerrainDecal(TerrainDecalType type)
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 14/09/2026: same "first draw module only" rule as setTerrainDecal()
+// above (to prevent stacking -- see its own comment), just with an arbitrary texture/size instead
+// of a fixed TerrainDecalType. See PersistentDecalUpdateV2 for the module that calls this.
+void Drawable::setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style)
+{
+	DrawModule** dm = getDrawModules();
+
+	if (*dm)
+		(*dm)->setPersistentDecal(textureName, sizeX, sizeY, style);
+}
+
+//-------------------------------------------------------------------------------------------------
 void Drawable::setTerrainDecalSize(Real x, Real y)
 {
 	DrawModule** dm = getDrawModules();

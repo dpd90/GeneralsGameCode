@@ -52,7 +52,7 @@ RadiusDecalTemplate::RadiusDecalTemplate() :
 }
 
 // ------------------------------------------------------------------------------------------------
-void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, const Player* owningPlayer, RadiusDecal& result) const
+void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, const Player* owningPlayer, RadiusDecal& result, Bool allowOffscreenCulling) const
 {
 	result.clear();
 
@@ -78,6 +78,7 @@ void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, con
 		strlcpy(decalInfo.m_ShadowName, m_name.str(), ARRAY_SIZE(decalInfo.m_ShadowName));		// name of your texture
 		decalInfo.m_sizeX = radius*2;									// world space dimensions
 		decalInfo.m_sizeY = radius*2;									// world space dimensions
+		decalInfo.m_allowOffscreenCulling = allowOffscreenCulling;	// GeneralsMod @feature Dimitar 14/09/2026: see the header declaration's comment
 
 		result.m_decal = TheProjectedShadowManager->addDecal(&decalInfo);
 		if (result.m_decal)

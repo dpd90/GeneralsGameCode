@@ -39,6 +39,7 @@
 class Matrix3D;
 class RenderCost;
 class OBBoxClass;
+enum ShadowType : Int;	///<GeneralsMod @feature Dimitar 14/09/2026: forward-declared like Shadow.h's own RadiusDecal.h precedent -- avoids pulling the full Shadow.h include in here just for the enum type
 
 // TYPES //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -82,6 +83,16 @@ public:
 	virtual void setTerrainDecal(TerrainDecalType type) {};
 	virtual void setTerrainDecalSize(Real x, Real y) {};
 	virtual void setTerrainDecalOpacity(Real o) {};
+
+	// GeneralsMod @feature Dimitar 14/09/2026: sibling to setTerrainDecal() above, but takes the
+	// texture name/size directly instead of indexing the fixed compiled-in TerrainDecalType/
+	// TerrainDecalTextureName[] table -- lets a module (see PersistentDecalUpdateV2) paint an
+	// arbitrary INI-authored decal texture with no engine changes needed per new appearance.
+	// GeneralsMod @feature Dimitar 14/09/2026: style is required (no default) -- SHADOW_ALPHA_DECAL
+	// or SHADOW_ADDITIVE_DECAL are the two meaningful choices here (see ShadowType in Shadow.h); no
+	// default value is given because only a forward-declared enum is visible at this point, not its
+	// enumerator constants -- callers must spell out the value they want.
+	virtual void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style) {};
 
 	virtual void setFullyObscuredByShroud(Bool fullyObscured) = 0;
 

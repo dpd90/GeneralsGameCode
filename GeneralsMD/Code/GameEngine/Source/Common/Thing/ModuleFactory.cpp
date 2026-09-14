@@ -147,6 +147,7 @@
 #include "GameLogic/Module/LifetimeUpdate.h"
 #include "GameLogic/Module/RadiusDecalUpdate.h"
 #include "GameLogic/Module/DecalUpdateV2.h"
+#include "GameLogic/Module/PersistentDecalUpdateV2.h"
 #include "GameLogic/Module/AutoDepositUpdate.h"
 #include "GameLogic/Module/MissileAIUpdate.h"
 #include "GameLogic/Module/NeutronMissileUpdate.h"
@@ -171,6 +172,7 @@
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"
 #include "GameLogic/Module/SpecialAbilityUpdate.h"
 #include "GameLogic/Module/SwitchStateV2.h"
+#include "GameLogic/Module/ShieldGeneratorUpdateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/MissileLauncherBuildingUpdate.h"
 #include "GameLogic/Module/StealthDetectorUpdate.h"
 #include "GameLogic/Module/StealthUpdate.h"
@@ -259,6 +261,7 @@
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/HighlanderBody.h"
 #include "GameLogic/Module/ImmortalBody.h"
+#include "GameLogic/Module/ShieldedBody.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/StructureBody.h"
 #include "GameLogic/Module/HiveStructureBody.h"
 #include "GameLogic/Module/UndeadBody.h"
@@ -275,6 +278,7 @@
 #include "GameLogic/Module/OCLSpecialPower.h"
 #include "GameLogic/Module/SpecialAbility.h"
 #include "GameLogic/Module/SwitchStateV2Activate.h"
+#include "GameLogic/Module/ShieldGeneratorActivateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/SpyVisionSpecialPower.h"
 #include "GameLogic/Module/CashBountyPower.h"
 #include "GameLogic/Module/CleanupAreaPower.h"
@@ -408,6 +412,7 @@ void ModuleFactory::init()
 	addModule( LifetimeUpdate );
 	addModule( RadiusDecalUpdate );
 	addModule( DecalUpdateV2 );
+	addModule( PersistentDecalUpdateV2 );
 	addModule( EMPUpdate );
   addModule( LeafletDropBehavior );
 	addModule( AutoDepositUpdate );
@@ -455,6 +460,7 @@ void ModuleFactory::init()
 	addModule( OCLUpdate );
 	addModule( SpecialAbilityUpdate );
 	addModule( SwitchStateV2 );
+	addModule( ShieldGeneratorUpdateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( MissileLauncherBuildingUpdate );
 	addModule( SupplyCenterProductionExitUpdate );
 	addModule( SupplyCenterDockUpdate );
@@ -545,6 +551,7 @@ void ModuleFactory::init()
 	addModule( ActiveBody );
 	addModule( HighlanderBody );
 	addModule( ImmortalBody );
+	addModule( ShieldedBody );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( StructureBody );
 	addModule( HiveStructureBody );
 	addModule( UndeadBody );
@@ -562,6 +569,7 @@ void ModuleFactory::init()
 	addModule( FireWeaponPower );
 	addModule( SpecialAbility );
 	addModule( SwitchStateV2Activate );
+	addModule( ShieldGeneratorActivateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( SpyVisionSpecialPower );
 	addModule( CashBountyPower );
 	addModule( CleanupAreaPower );

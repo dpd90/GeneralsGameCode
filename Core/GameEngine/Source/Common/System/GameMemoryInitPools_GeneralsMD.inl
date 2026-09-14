@@ -169,6 +169,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "UndeadBody", 32, 32 },
 	{ "HordeUpdate", 128, 32 },
 	{ "ImmortalBody", 128, 256 },
+	{ "ShieldedBody", 64, 64 },///< GeneralsMod @feature Dimitar 13/09/2026: opt-in ActiveBody subclass for units using ShieldGeneratorUpdateV2
 	{ "InactiveBody", 2048, 32 },
 	{ "InstantDeathBehavior", 512, 32 },
 	{ "LaserUpdate", 32, 32 },
@@ -184,6 +185,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "BaikonurLaunchPower", 4, 4 },
 	{ "RadiusDecalUpdate", 16, 16 },
 	{ "DecalUpdateV2", 32, 16 },///< GeneralsMod @feature Dimitar 12/09/2026: new module, capped by GameData.ini MaxDecalCount (default 32)
+	{ "PersistentDecalUpdateV2", 32, 16 },///< GeneralsMod @feature Dimitar 14/09/2026: new module, one per unit template instance that triggers it, no hard cap like DecalUpdateV2's MaxDecalCount
 	{ "BattlePlanUpdate", 32, 32 },
 	{ "LifetimeUpdate", 32, 32 },
 	{ "LocomotorSetUpgrade", 512, 128 },
@@ -242,6 +244,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "SwitchStateV2Activate", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, used the same way (short-lived special-power trigger object)
 	{ "SwitchStateV2", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, paired worker for SwitchStateV2Activate
 	{ "SwitchStateWhenDamagedBehaviorV2", 16, 16 },///< GeneralsMod @feature Dimitar 11/09/2026: new module, automatic damage-triggered counterpart to SwitchStateV2Activate
+	{ "ShieldGeneratorUpdateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026, renamed 13/09/2026: temporary absorption-pool shield (paired worker for ShieldGeneratorActivateV2)
+	{ "ShieldGeneratorActivateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026: new module, button-facing half of ShieldGeneratorUpdateV2
 	{ "MissileLauncherBuildingUpdate", 32, 32 },
 	{ "SquishCollide", 512, 32 },
 	{ "StructureBody", 512, 64 },
@@ -305,6 +309,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "W3DDependencyModelDraw", 64, 64 },
 	{ "W3DLaserDraw", 32, 32 },
 	{ "W3DModelDraw", 2048, 512 },
+	{ "W3DPersistentAnimModelDraw", 64, 64 },///< GeneralsMod @feature Dimitar 13/09/2026: opt-in W3DModelDraw subclass, animates through configurable DisabledTypes
 	{ "W3DOverlordTankDraw", 64, 64 },
 	{ "W3DOverlordTruckDraw", 64, 64 },
 	{ "W3DOverlordAircraftDraw", 64, 64 },

@@ -294,6 +294,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/DamageModule.h
     Include/GameLogic/Module/DamDie.h
     Include/GameLogic/Module/DecalUpdateV2.h
+    Include/GameLogic/Module/PersistentDecalUpdateV2.h
     Include/GameLogic/Module/DefaultProductionExitUpdate.h
     Include/GameLogic/Module/DefectorSpecialPower.h
     Include/GameLogic/Module/DeletionUpdate.h
@@ -343,6 +344,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/HiveStructureBody.h
     Include/GameLogic/Module/HordeUpdate.h
     Include/GameLogic/Module/ImmortalBody.h
+    Include/GameLogic/Module/ShieldedBody.h
     Include/GameLogic/Module/InactiveBody.h
     Include/GameLogic/Module/InstantDeathBehavior.h
     Include/GameLogic/Module/InternetHackContain.h
@@ -456,6 +458,8 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/SwitchStateV2.h
     Include/GameLogic/Module/SwitchStateV2Activate.h
     Include/GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h
+    Include/GameLogic/Module/ShieldGeneratorUpdateV2.h
+    Include/GameLogic/Module/ShieldGeneratorActivateV2.h
     Include/GameLogic/Module/TechBuildingBehavior.h
     Include/GameLogic/Module/TempWeaponBonusHelper.h
     Include/GameLogic/Module/TensileFormationUpdate.h
@@ -883,6 +887,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Body/HighlanderBody.cpp
     Source/GameLogic/Object/Body/HiveStructureBody.cpp
     Source/GameLogic/Object/Body/ImmortalBody.cpp
+    Source/GameLogic/Object/Body/ShieldedBody.cpp
     Source/GameLogic/Object/Body/InactiveBody.cpp
     Source/GameLogic/Object/Body/StructureBody.cpp
     Source/GameLogic/Object/Body/UndeadBody.cpp
@@ -973,6 +978,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/SpecialPower/SpecialPowerModule.cpp
     Source/GameLogic/Object/SpecialPower/SpyVisionSpecialPower.cpp
     Source/GameLogic/Object/SpecialPower/SwitchStateV2Activate.cpp
+    Source/GameLogic/Object/SpecialPower/ShieldGeneratorActivateV2.cpp
     Source/GameLogic/Object/Update/AIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/AssaultTransportAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/ChinookAIUpdate.cpp
@@ -1001,6 +1007,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/CleanupHazardUpdate.cpp
     Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
     Source/GameLogic/Object/Update/DecalUpdateV2.cpp
+    Source/GameLogic/Object/Update/PersistentDecalUpdateV2.cpp
     Source/GameLogic/Object/Update/DeletionUpdate.cpp
     Source/GameLogic/Object/Update/DemoTrapUpdate.cpp
     Source/GameLogic/Object/Update/DockUpdate/DockUpdate.cpp
@@ -1057,6 +1064,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/StructureCollapseUpdate.cpp
     Source/GameLogic/Object/Update/StructureToppleUpdate.cpp
     Source/GameLogic/Object/Update/SwitchStateV2.cpp
+    Source/GameLogic/Object/Update/ShieldGeneratorUpdateV2.cpp
     Source/GameLogic/Object/Update/TensileFormationUpdate.cpp
     Source/GameLogic/Object/Update/ToppleUpdate.cpp
     Source/GameLogic/Object/Update/UpdateModule.cpp

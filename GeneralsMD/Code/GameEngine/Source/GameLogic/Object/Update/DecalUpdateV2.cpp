@@ -79,7 +79,10 @@ void DecalUpdateV2::tryCreateDecal()
 
 	Object *self = getObject();
 
-	data->m_decalTemplate.createRadiusDecal( *self->getPosition(), data->m_radiusStart, self->getControllingPlayer(), m_decal );
+	// GeneralsMod @feature Dimitar 14/09/2026: allowOffscreenCulling=TRUE -- the only
+	// RadiusDecalTemplate consumer that opts into off-screen/fog-of-war culling (see
+	// Shadow::ShadowTypeInfo::m_allowOffscreenCulling for why every other consumer must not).
+	data->m_decalTemplate.createRadiusDecal( *self->getPosition(), data->m_radiusStart, self->getControllingPlayer(), m_decal, TRUE );
 
 	// GeneralsMod @feature Dimitar 12/09/2026: RadiusDecal::isEmpty() is guaranteed consistent
 	// across all clients regardless of local visibility (see the comment on RadiusDecal.h) -- so
@@ -262,7 +265,59 @@ UpdateSleepTime DecalUpdateV2::update()
 
 	computeAndApplyDecalState( elapsed );
 
-	return UPDATE_SLEEP_NONE;
+	return computeNextSleepTime( elapsed );
+}
+
+//-------------------------------------------------------------------------------------------------
+/** GeneralsMod @feature Dimitar 14/09/2026: skip ticking every logic frame through a long, fully
+	* settled "hold" window -- e.g. a 500ms ResizeInTime, then 30 real seconds of nothing changing,
+	* then a 500ms ResizeOutTime -- by sleeping straight to the next frame that would actually
+	* change anything: the start of FadeOutTime/ResizeOutTime, or Duration itself (self-destruct,
+	* already handled by the elapsed >= m_duration check at the top of update(), which this wakes
+	* straight into). Deliberately returns UPDATE_SLEEP_NONE (tick every frame, no attempt to sleep)
+	* whenever an OpacityMin/OpacityMax throb range is configured (hasOpacityRange()) -- the sine
+	* throb changes every single frame for as long as the hold window lasts, so there is no settled
+	* state to sleep through there; ticking every frame in that case is correct, not a missed
+	* optimization. Also returns UPDATE_SLEEP_NONE while still easing in (opacity and/or radius) or
+	* already easing out -- both are genuine per-frame animation and must tick every frame; only the
+	* flat middle, when neither is happening, is worth sleeping through. */
+//-------------------------------------------------------------------------------------------------
+UpdateSleepTime DecalUpdateV2::computeNextSleepTime( UnsignedInt elapsed ) const
+{
+	const DecalUpdateV2ModuleData *data = getDecalUpdateV2ModuleData();
+
+	if ( data->m_decalTemplate.hasOpacityRange() )
+		return UPDATE_SLEEP_NONE;
+
+	// still easing IN (opacity and/or radius) -- must animate every frame
+	UnsignedInt activeInEnd = ( data->m_fadeInTime > data->m_resizeInTime ) ? data->m_fadeInTime : data->m_resizeInTime;
+	if ( elapsed < activeInEnd )
+		return UPDATE_SLEEP_NONE;
+
+	// earliest frame at which either the fade-out or resize-out ramp begins, or Duration itself
+	// (self-destruct) -- whichever comes first is the next frame anything could actually change.
+	UnsignedInt nextChange = data->m_duration;
+
+	if ( data->m_fadeOutTime > 0 )
+	{
+		UnsignedInt fadeOutStart = ( data->m_fadeOutTime <= data->m_duration ) ? ( data->m_duration - data->m_fadeOutTime ) : 0;
+		if ( fadeOutStart < nextChange )
+			nextChange = fadeOutStart;
+	}
+
+	if ( data->m_resizeOutTime > 0 )
+	{
+		UnsignedInt resizeOutStart = ( data->m_resizeOutTime <= data->m_duration ) ? ( data->m_duration - data->m_resizeOutTime ) : 0;
+		if ( resizeOutStart < nextChange )
+			nextChange = resizeOutStart;
+	}
+
+	// already at/past the start of a fade-out or resize-out ramp -- animate every frame until it
+	// (or Duration) ends
+	if ( elapsed >= nextChange )
+		return UPDATE_SLEEP_NONE;
+
+	return UPDATE_SLEEP( nextChange - elapsed );
 }
 
 // ------------------------------------------------------------------------------------------------

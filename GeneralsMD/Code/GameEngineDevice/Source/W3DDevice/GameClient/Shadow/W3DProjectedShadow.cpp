@@ -47,6 +47,8 @@
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "d3dx8math.h"
 #include "Common/GlobalData.h"
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "W3DDevice/GameClient/W3DProjectedShadow.h"
 #include "WW3D2/statistics.h"
 #include "Common/Debug.h"
@@ -1436,6 +1438,13 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 		W3DShadowTexture *lastShadowDecalTexture=nullptr;
 		ShadowType lastShadowType = SHADOW_NONE;
 
+		// GeneralsMod @feature Dimitar 14/09/2026: local player's index, used below to test
+		// fog-of-war/shroud for free-floating decals (no owning robj) -- see the culling block
+		// inside the loop for the full rationale. Matches RadiusDecalTemplate::createRadiusDecal()'s
+		// own choice of ThePlayerList->getLocalPlayer() (not rts::getObservedOrLocalPlayer()) for
+		// consistency within this same decal-visibility feature area.
+		Int localPlayerIndex = ThePlayerList->getLocalPlayer()->getPlayerIndex();
+
 		for( shadow = m_decalList; shadow; shadow = shadow->m_next )
 		{
 			if (shadow->m_isEnabled && !shadow->m_isInvisibleEnabled)
@@ -1451,10 +1460,58 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 					lastShadowDecalTexture=shadow->m_shadowTexture[0];
 					lastShadowType=shadow->m_type;
 				}
-				///@todo: may need to fix this if shadows are large enough to be seen while object is not visible
-				if (!(shadow->m_robj && !shadow->m_robj->Is_Really_Visible()))
+				// GeneralsMod @feature Dimitar 14/09/2026: object-bound decals (shadow->m_robj set --
+				// e.g. PersistentDecalUpdateV2's setPersistentDecal(), via addDecal(robj, info)) already
+				// got an Is_Really_Visible() skip for free (see the @todo below). Free-floating decals
+				// (shadow->m_robj == nullptr -- RadiusDecal/DecalUpdateV2, via addDecal(info) with no
+				// owning robj) never had ANY visibility check at all: every live one was unconditionally
+				// re-projected onto the terrain every single frame, on-screen or not, shrouded or not
+				// (this is the exact limitation DecalUpdateV2.h's own header comment used to document as
+				// a known, previously out-of-scope limitation). Two checks added for that case, both
+				// reusing existing engine facilities rather than new ones: a camera-frustum test against
+				// a bounding sphere built from the decal's own position/size (identical
+				// CollisionMath::Overlap_Test(*shadowCameraFrustum, ...) pattern already used a few dozen
+				// lines up for SHADOW_PROJECTION-type shadows in this same function), and a fog-of-war
+				// test via ThePartitionManager's own per-world-position shroud query -- != CELLSHROUD_CLEAR
+				// matches the >= OBJECTSHROUD_FOGGED threshold GameClient.cpp already uses to decide an
+				// object-bound Drawable is "fully obscured by shroud" (fogged, not just unexplored, hides
+				// it too). Both checks are purely render-side and purely local-client (this function
+				// already runs once per client's own render pass, same as Is_Really_Visible() itself), so
+				// there's no desync risk -- neither ever touches synced game-logic state.
+				Bool visible = TRUE;
+
+				if (shadow->m_robj)
+				{
+					///@todo: may need to fix this if shadows are large enough to be seen while object is not visible
+					visible = shadow->m_robj->Is_Really_Visible();
+				}
+				else if (shadow->m_allowOffscreenCulling)
+				{
+					// GeneralsMod @feature Dimitar 14/09/2026: opt-in only (see
+					// Shadow::ShadowTypeInfo::m_allowOffscreenCulling) -- currently only DecalUpdateV2's own
+					// decals reach here; every other free-floating decal (targeting reticles, delivery/impact
+					// indicators, radius cursors, etc.) falls through to the unconditional "stays visible"
+					// case below, unchanged from the original engine behavior.
+					Vector3 halfDiag( shadow->m_decalSizeX * 0.5f, shadow->m_decalSizeY * 0.5f, 0.0f );
+					SphereClass decalSphere( Vector3( shadow->m_x, shadow->m_y, shadow->m_z ), halfDiag.Length() );
+
+					if (CollisionMath::Overlap_Test(*shadowCameraFrustum, decalSphere) == CollisionMath::OUTSIDE)
+					{
+						visible = FALSE;
+					}
+					else
+					{
+						Coord3D pos = { shadow->m_x, shadow->m_y, shadow->m_z };
+						if (ThePartitionManager->getShroudStatusForPlayer(localPlayerIndex, &pos) != CELLSHROUD_CLEAR)
+							visible = FALSE;
+					}
+				}
+				// else: free-floating decal that did not opt in -- stays fully visible, exactly matching
+				// original engine behavior (visible stays TRUE from its initialization above).
+
+				if (visible)
 				{	//queueSimpleDecal(shadow);
-					queueDecal(shadow);	//only draw shadow if casting object is visible
+					queueDecal(shadow);	//only draw decal if casting object (if any) is visible, decal itself is on-screen, and not shrouded
 					projectionCount++;
 				}
 			}
@@ -1538,6 +1595,11 @@ Shadow* W3DProjectedShadowManager::addDecal(Shadow::ShadowTypeInfo *shadowInfo)
 	shadow->m_decalOffsetV=0;
 
 	shadow->m_flags	= allowSunDirection;
+
+	// GeneralsMod @feature Dimitar 14/09/2026: propagate the opt-in culling flag onto the
+	// persistent Shadow object -- renderShadows()'s m_decalList loop reads it from here, not from
+	// shadowInfo (which is a transient, caller-owned struct that doesn't outlive this call).
+	shadow->m_allowOffscreenCulling = shadowInfo->m_allowOffscreenCulling;
 
 	shadow->init();
 

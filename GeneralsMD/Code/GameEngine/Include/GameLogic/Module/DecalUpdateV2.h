@@ -44,12 +44,20 @@
 //	handles MaxTerrainTracks in this engine (refuse when the pool is full, not evict-the-oldest --
 //	see Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DTerrainTracks.cpp).
 //
-//	Deliberately NOT implemented here: camera-frustum culling for the underlying decal -- every
-//	live RadiusDecal is fully re-projected onto the terrain every frame regardless of whether it's
-//	actually on-screen (see the "@todo: may need to fix this if shadows are large enough to be seen
-//	while object is not visible" comments in W3DProjectedShadow.cpp's queueDecal() call sites, both
-//	of which predate this mod). Left as a possible separate follow-up change to the shared
-//	W3DProjectedShadowManager rendering code, intentionally not scoped into this module.
+//	Update() sleeps through a fully settled hold window (e.g. a short ResizeInTime, then a long
+//	stretch of nothing changing, then a short ResizeOutTime) instead of ticking every logic frame
+//	for no visible reason -- see computeNextSleepTime() in the .cpp. Disabled automatically whenever
+//	an OpacityMin/OpacityMax throb range is configured, since the throb changes every frame anyway.
+//
+//	Camera-frustum and fog-of-war culling for the underlying decal itself (added 14/09/2026, fixing
+//	the limitation this comment used to describe -- every live RadiusDecal used to be re-projected
+//	onto the terrain every frame regardless of on-screen visibility or shroud) now lives one level
+//	down, in W3DProjectedShadowManager::renderShadows()'s m_decalList loop
+//	(W3DProjectedShadow.cpp) -- it's a manager-level fix, not specific to this module, since it
+//	applies to every decal created via the no-owning-robj addDecal(ShadowTypeInfo*) overload, not
+//	just DecalUpdateV2's own. Object-bound decals (PersistentDecalUpdateV2's setPersistentDecal(),
+//	via the other addDecal(robj, info) overload) already had an equivalent Is_Really_Visible() skip
+//	from the original engine code, unchanged by this.
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -135,6 +143,13 @@ private:
 
 	void tryCreateDecal();
 	void computeAndApplyDecalState( UnsignedInt elapsed );
+
+	// GeneralsMod @feature Dimitar 14/09/2026: lets update() sleep through a long, fully settled
+	// hold window (e.g. a 500ms ResizeInTime, then 30 real seconds of nothing changing, then a
+	// 500ms ResizeOutTime) instead of ticking every logic frame for no visible reason -- see the
+	// .cpp for the full rationale, including why an OpacityMin/OpacityMax throb range disables
+	// this entirely rather than trying to sleep through it.
+	UpdateSleepTime computeNextSleepTime( UnsignedInt elapsed ) const;
 
 	RadiusDecal		m_decal;
 	UnsignedInt		m_startFrame;

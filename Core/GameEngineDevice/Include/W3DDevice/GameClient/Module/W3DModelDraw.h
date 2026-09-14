@@ -59,6 +59,7 @@ public:
 class Thing;
 class RenderObjClass;
 class Shadow;
+enum ShadowType : Int;	///<GeneralsMod @feature Dimitar 14/09/2026
 class TerrainTracksRenderObjClass;
 class HAnimClass;
 enum GameLODLevel CPP_11(: Int);
@@ -367,6 +368,7 @@ public:
 
 	virtual void setFullyObscuredByShroud(Bool fullyObscured) override;
 	virtual void setTerrainDecal(TerrainDecalType type) override;
+	virtual void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style) override;	///<GeneralsMod @feature Dimitar 14/09/2026
 
 	virtual Bool isVisible() const override;
 	virtual void reactToTransformChange(const Matrix3D* oldMtx, const Coord3D* oldPos, Real oldAngle) override;

@@ -1280,6 +1280,11 @@ void ActiveBody::internalAddSubdualDamage( Real delta )
 //-------------------------------------------------------------------------------------------------
 Bool ActiveBody::canBeSubdued() const
 {
+	// Structures under construction have no completed systems to disable, and disabling them
+	// corrupts the player's power accounting (see Object::onDisabledEdge / friend_adjustPowerForPlayer).
+	if( getObject()->isKindOf( KINDOF_STRUCTURE ) && getObject()->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+		return FALSE;
+
 	// Any body with subdue listings can be subdued.
 	return getActiveBodyModuleData()->m_subdualDamageCap > 0;
 }
