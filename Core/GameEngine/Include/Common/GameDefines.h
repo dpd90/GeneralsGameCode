@@ -100,7 +100,7 @@
 // Use RETAIL_COMPATIBLE_CRC and RETAIL_COMPATIBLE_XFER_SAVE to guard breaking changes.
 
 #ifndef RETAIL_COMPATIBLE_CRC
-#define RETAIL_COMPATIBLE_CRC (1) // Game is expected to be CRC compatible with retail Generals 1.08, Zero Hour 1.04
+#define RETAIL_COMPATIBLE_CRC (0) // GeneralsMod: not CRC compatible with retail Generals 1.08 / Zero Hour 1.04 by design
 #endif
 
 #ifndef RETAIL_COMPATIBLE_XFER_SAVE

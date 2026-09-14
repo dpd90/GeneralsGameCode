@@ -42,6 +42,7 @@
 #include "Common/CRCDebug.h"
 #include "Common/GameAudio.h"
 #include "Common/GameState.h"
+#include "Common/GameType.h"///< GeneralsMod @feature Dimitar 08/09/2026: for INVALID_ANGLE
 #include "Common/INI.h"
 #include "Common/PerfTimer.h"
 #include "Common/Player.h"
@@ -1033,14 +1034,34 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 				{
 					projectileDestination.set( *victimObj->getPosition() );
 				}
-				firingWeapon->createLaser( sourceObj, victimObj, &projectileDestination );
+				firingWeapon->createLaser( sourceObj, victimObj, &projectileDestination, wslot, specificBarrelToUse );// GeneralsMod @feature Dimitar 08/09/2026
 			}
 			else
 			{
 				//We are missing our intended target, so now we want to aim at the ground at the projectile offset.
 				damageID = INVALID_ID;
-				firingWeapon->createLaser( sourceObj, nullptr, &projectileDestination );
+				firingWeapon->createLaser( sourceObj, nullptr, &projectileDestination, wslot, specificBarrelToUse );// GeneralsMod @feature Dimitar 08/09/2026
 			}
+
+			// GeneralsMod @feature Dimitar 08/09/2026: Laser weapons never spawn a real Projectile
+			// object, so they never get the isProjectileDetonation recursive callback that gives
+			// projectile weapons their target-side ProjectileDetonationFX/OCL. Fire those same fields
+			// here instead, explicitly positioned at the laser's own impact point (projectileDestination),
+			// so a laser weapon gets the same target-side FX/OCL support a projectile weapon already has,
+			// using whatever the INI already defines for ProjectileDetonationFX/ProjectileDetonationOCL.
+			if( sourceObj )
+			{
+				VeterancyLevel v = sourceObj->getVeterancyLevel();
+
+				const FXList *laserDetonationFX = getProjectileDetonateFX( v );
+				if( laserDetonationFX )
+					FXList::doFXPos( laserDetonationFX, &projectileDestination );
+
+				const ObjectCreationList *laserDetonationOCL = getProjectileDetonationOCL( v );
+				if( laserDetonationOCL )
+					ObjectCreationList::create( laserDetonationOCL, sourceObj, &projectileDestination, nullptr, INVALID_ANGLE );
+			}
+
 			if( inflictDamage )
 			{
 				dealDamageInternal( sourceID, damageID, &projectileDestination, bonus, isProjectileDetonation );
@@ -2522,7 +2543,7 @@ void Weapon::newProjectileFired(const Object *sourceObj, const Object *projectil
 }
 
 //-------------------------------------------------------------------------------------------------
-void Weapon::createLaser( const Object *sourceObj, const Object *victimObj, const Coord3D *victimPos )
+void Weapon::createLaser( const Object *sourceObj, const Object *victimObj, const Coord3D *victimPos, WeaponSlotType wslot, Int specificBarrelToUse )
 {
 	const ThingTemplate* pst = TheThingFactory->findTemplate(m_template->getLaserName());
 	if( !pst )
@@ -2553,7 +2574,17 @@ void Weapon::createLaser( const Object *sourceObj, const Object *victimObj, cons
 				//Projectiles are a different story, target their exact position.
 				pos.z += 10.0f;
 			}
-			update->initLaser( sourceObj, victimObj, sourceObj->getPosition(), &pos, m_template->getLaserBoneName() );
+
+			// GeneralsMod @feature Dimitar 08/09/2026: LaserBoneName, if set, always wins (unchanged
+			// behavior for every existing weapon). Only when it's left empty do we fall back to asking
+			// the firer's Drawable for the current barrel's WeaponFireFXBone -- the same bone a real
+			// projectile / muzzle FX would use for this shot -- so ClipSize-driven bone alternation
+			// (WEAPONA01, WEAPONA02, ...) works for lasers too, with zero new INI fields.
+			AsciiString laserBoneName = m_template->getLaserBoneName();
+			if( laserBoneName.isEmpty() && sourceObj->getDrawable() )
+				laserBoneName = sourceObj->getDrawable()->getWeaponFireFXBoneName( wslot, specificBarrelToUse );
+
+			update->initLaser( sourceObj, victimObj, sourceObj->getPosition(), &pos, laserBoneName );
 		}
 	}
 }

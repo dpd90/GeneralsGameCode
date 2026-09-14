@@ -57,7 +57,7 @@ public:
 	virtual DisabledMaskType getDisabledTypesToProcess() const override { return DISABLEDMASK_ALL; }
 	virtual UpdateSleepTime update() override;
 
-	void doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration );
+	void doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride = nullptr );///< GeneralsMod @feature Dimitar 08/09/2026: optional custom tint color for WeaponBonusUpdateV2
 
 protected:
 	WeaponBonusConditionType m_currentBonus;

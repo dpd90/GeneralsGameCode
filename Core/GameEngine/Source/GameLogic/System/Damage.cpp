@@ -83,6 +83,10 @@ const char* const DamageTypeFlags::s_bitNameList[] =
 	"MICROWAVE",
 	"KILL_GARRISONED",
 	"STATUS",
+	"HEALING_VEHICLE",
+	"HEALING_INFANTRY",
+	"HEALING_STRUCTURE",
+	"HEALING_AIRCRAFT",
 
 	nullptr
 };

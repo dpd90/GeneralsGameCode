@@ -372,6 +372,10 @@ void ActiveBody::attemptDamage( DamageInfo *damageInfo )
 	switch( damageInfo->in.m_damageType )
 	{
 		case DAMAGE_HEALING:
+		case DAMAGE_HEALING_VEHICLE:
+		case DAMAGE_HEALING_INFANTRY:
+		case DAMAGE_HEALING_STRUCTURE:
+		case DAMAGE_HEALING_AIRCRAFT:
 		{
 			if( !damageInfo->in.m_kill )
 			{
@@ -803,7 +807,7 @@ void ActiveBody::attemptHealing( DamageInfo *damageInfo )
 	if( damageInfo == nullptr )
 		return;
 
-	if( damageInfo->in.m_damageType != DAMAGE_HEALING )
+	if( !IsHealingDamage( damageInfo->in.m_damageType ) )
 	{
 		// Healing and Damage are separate, so this shouldn't happen
 		attemptDamage( damageInfo );
@@ -1276,6 +1280,11 @@ void ActiveBody::internalAddSubdualDamage( Real delta )
 //-------------------------------------------------------------------------------------------------
 Bool ActiveBody::canBeSubdued() const
 {
+	// Structures under construction have no completed systems to disable, and disabling them
+	// corrupts the player's power accounting (see Object::onDisabledEdge / friend_adjustPowerForPlayer).
+	if( getObject()->isKindOf( KINDOF_STRUCTURE ) && getObject()->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+		return FALSE;
+
 	// Any body with subdue listings can be subdued.
 	return getActiveBodyModuleData()->m_subdualDamageCap > 0;
 }

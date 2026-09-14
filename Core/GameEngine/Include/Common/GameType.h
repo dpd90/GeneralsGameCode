@@ -91,16 +91,35 @@ extern const char *const WeatherNames[];
 
 enum Scorches CPP_11(: Int)
 {
+	// GeneralsMod @feature Dimitar 13/09/2026: atlas bumped from a 3x3/9-cell grid to a 4x4/16-cell
+	// one (see W3DScorch.h's SCORCH_PER_ROW / SCORCH_MARKS_IN_TEXTURE and the packing constants
+	// in W3DScorch.cpp) for a higher-resolution ScorchTexture without sacrificing per-mark quality.
+	// SHADOW_SCORCH (the shadow-blob art this atlas also carries, unrelated to real scorch marks --
+	// see TheGameClient->addScorch() callers elsewhere) used to sit at index 4, right in the middle
+	// of the numbering; it's moved to the very last cell instead so SCORCH_1..SCORCH_15 are one
+	// clean contiguous block RANDOM can pick a sub-range from without special-casing it out. This
+	// also fills in the SCORCH_5 gap the original layout skipped over for the same reason.
+	//
+	// The commented-out reserved block below (CRATER_2 etc.) is dead code/documentation only -- its
+	// literal index values are now stale relative to these, but since none of it is compiled that
+	// doesn't affect anything; renumber it too if it's ever revived.
 	SCORCH_1 = 0,
 	SCORCH_2 = 1,
 	SCORCH_3 = 2,
 	SCORCH_4 = 3,
-	SHADOW_SCORCH = 4,
-/*	SCORCH_6 = 5,
+	SCORCH_5 = 4,
+	SCORCH_6 = 5,
 	SCORCH_7 = 6,
 	SCORCH_8 = 7,
-
-	CRATER_1 = 8,
+	SCORCH_9 = 8,
+	SCORCH_10 = 9,
+	SCORCH_11 = 10,
+	SCORCH_12 = 11,
+	SCORCH_13 = 12,
+	SCORCH_14 = 13,
+	SCORCH_15 = 14,
+	SHADOW_SCORCH = 15,
+/*
 	CRATER_2 = 9,
 	CRATER_3 = 10,
 	CRATER_4 = 11,

@@ -35,6 +35,7 @@
 #include "Common/INIException.h"
 
 #include "Common/DamageFX.h"
+#include "Common/DisabledTypes.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 #include "Common/GameAudio.h"
@@ -1901,6 +1902,45 @@ void INI::parseDamageTypeFlags(INI* ini, void* /*instance*/, void* store, const 
 		throw INI_UNKNOWN_TOKEN;
 	}
 	*(DamageTypeFlags*)store = flags;
+}
+
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+///< GeneralsMod @feature Dimitar 13/09/2026: same ALL/NONE/+X/-X token convention as
+///< parseDamageTypeFlags above, applied to DisabledMaskType (Common/DisabledTypes.h) instead of
+///< DamageTypeFlags -- lets a module expose a "which DisabledTypes matter to me" INI field the same
+///< way DamageTypes fields already work, without hand-rolling a new token grammar.
+void INI::parseDisabledMaskType(INI* ini, void* /*instance*/, void* store, const void* /*userData*/)
+{
+	DisabledMaskType flags = DISABLEDMASK_ALL;
+
+	for (const char* token = ini->getNextToken(); token; token = ini->getNextTokenOrNull())
+	{
+		if (stricmp(token, "ALL") == 0)
+		{
+			flags = DISABLEDMASK_ALL;
+			continue;
+		}
+		if (stricmp(token, "NONE") == 0)
+		{
+			flags = DISABLEDMASK_NONE;
+			continue;
+		}
+		if (token[0] == '+')
+		{
+			Int bit = DisabledMaskType::getSingleBitFromName(token+1);
+			flags.set(bit, 1);
+			continue;
+		}
+		if (token[0] == '-')
+		{
+			Int bit = DisabledMaskType::getSingleBitFromName(token+1);
+			flags.set(bit, 0);
+			continue;
+		}
+		throw INI_UNKNOWN_TOKEN;
+	}
+	*(DisabledMaskType*)store = flags;
 }
 
 //-------------------------------------------------------------------------------------------------

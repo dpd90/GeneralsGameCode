@@ -45,12 +45,14 @@ RadiusDecalTemplate::RadiusDecalTemplate() :
 	m_opacityThrobTime(LOGICFRAMES_PER_SECOND),
 	m_color(0),
 	m_onlyVisibleToOwningPlayer(true),
+	m_minOpacitySet(false),
+	m_maxOpacitySet(false),
 	m_name(AsciiString::TheEmptyString)
 {
 }
 
 // ------------------------------------------------------------------------------------------------
-void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, const Player* owningPlayer, RadiusDecal& result) const
+void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, const Player* owningPlayer, RadiusDecal& result, Bool allowOffscreenCulling) const
 {
 	result.clear();
 
@@ -76,6 +78,7 @@ void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, con
 		strlcpy(decalInfo.m_ShadowName, m_name.str(), ARRAY_SIZE(decalInfo.m_ShadowName));		// name of your texture
 		decalInfo.m_sizeX = radius*2;									// world space dimensions
 		decalInfo.m_sizeY = radius*2;									// world space dimensions
+		decalInfo.m_allowOffscreenCulling = allowOffscreenCulling;	// GeneralsMod @feature Dimitar 14/09/2026: see the header declaration's comment
 
 		result.m_decal = TheProjectedShadowManager->addDecal(&decalInfo);
 		if (result.m_decal)
@@ -96,7 +99,7 @@ void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, con
 void RadiusDecalTemplate::xferRadiusDecalTemplate( Xfer *xfer )
 {
   // version
-  XferVersion currentVersion = 1;
+  XferVersion currentVersion = 2;
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
 
@@ -107,6 +110,41 @@ void RadiusDecalTemplate::xferRadiusDecalTemplate( Xfer *xfer )
 	xfer->xferUnsignedInt(&m_opacityThrobTime);
 	xfer->xferColor(&m_color);
 	xfer->xferBool(&m_onlyVisibleToOwningPlayer);
+
+	// GeneralsMod @feature Dimitar 12/09/2026: added alongside RGBA-aware decal opacity -- version-
+	// gated so older save files (version 1) just default both to FALSE via the constructor,
+	// matching their pre-existing behavior of never treating Opacity fields as "explicitly set".
+	if (version >= 2)
+	{
+		xfer->xferBool(&m_minOpacitySet);
+		xfer->xferBool(&m_maxOpacitySet);
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 12/09/2026: see the declaration in RadiusDecal.h for the full
+// rationale -- Color's alpha byte is what now defines "full strength" opacity for a decal that
+// doesn't use an explicit OpacityMin/OpacityMax throb range.
+Real RadiusDecalTemplate::getBaseOpacity() const
+{
+	if (m_color == 0)
+		return 1.0f;
+
+	return (Real)((m_color >> 24) & 0xff) / 255.0f;
+}
+
+// ------------------------------------------------------------------------------------------------
+/*static*/ void RadiusDecalTemplate::parseOpacityMin(INI* ini, void *instance, void *store, const void* userData)
+{
+	INI::parsePercentToReal(ini, instance, store, userData);
+	((RadiusDecalTemplate*)instance)->m_minOpacitySet = TRUE;
+}
+
+// ------------------------------------------------------------------------------------------------
+/*static*/ void RadiusDecalTemplate::parseOpacityMax(INI* ini, void *instance, void *store, const void* userData)
+{
+	INI::parsePercentToReal(ini, instance, store, userData);
+	((RadiusDecalTemplate*)instance)->m_maxOpacitySet = TRUE;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -116,8 +154,8 @@ void RadiusDecalTemplate::xferRadiusDecalTemplate( Xfer *xfer )
 	{
 		{ "Texture",										INI::parseAsciiString,				nullptr,							offsetof( RadiusDecalTemplate, m_name ) },
 		{ "Style",											INI::parseBitString32,				TheShadowNames,		offsetof( RadiusDecalTemplate, m_shadowType ) },
-		{ "OpacityMin",									INI::parsePercentToReal,			nullptr,							offsetof( RadiusDecalTemplate, m_minOpacity ) },
-		{ "OpacityMax",									INI::parsePercentToReal,			nullptr,							offsetof( RadiusDecalTemplate, m_maxOpacity) },
+		{ "OpacityMin",									RadiusDecalTemplate::parseOpacityMin,	nullptr,							offsetof( RadiusDecalTemplate, m_minOpacity ) },
+		{ "OpacityMax",									RadiusDecalTemplate::parseOpacityMax,	nullptr,							offsetof( RadiusDecalTemplate, m_maxOpacity) },
 		{ "OpacityThrobTime",						INI::parseDurationUnsignedInt,nullptr,							offsetof( RadiusDecalTemplate, m_opacityThrobTime ) },
 		{ "Color",											INI::parseColorInt,						nullptr,							offsetof( RadiusDecalTemplate, m_color ) },
 		{ "OnlyVisibleToOwningPlayer",	INI::parseBool,								nullptr,							offsetof( RadiusDecalTemplate, m_onlyVisibleToOwningPlayer ) },
@@ -216,6 +254,32 @@ void RadiusDecal::setOpacity( Real o )
 	if (m_decal)
 	{
 		m_decal->setOpacity(REAL_TO_INT(255.0f * o));
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 12/09/2026: same sine-throb math as update() above, but as a pure
+// query against an explicit frame offset instead of always reading TheGameLogic->getFrame() and
+// always applying the result -- lets a caller (DecalUpdateV2) decide WHEN the throb should run.
+Real RadiusDecal::computeThrobOpacity( UnsignedInt frameOffset ) const
+{
+	if (!m_template || m_template->m_opacityThrobTime == 0)
+		return 1.0f;
+
+	Real theta = (2*PI) * (Real)(frameOffset % m_template->m_opacityThrobTime) / (Real)m_template->m_opacityThrobTime;
+	Real percent = 0.5f * (Sin(theta) + 1.0f);
+	return m_template->m_minOpacity + percent * (m_template->m_maxOpacity - m_template->m_minOpacity);
+}
+
+// ------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 12/09/2026: expose runtime resize -- Shadow already rebuilds its decal
+// quad from m_decalSizeX/m_decalSizeY every frame (see W3DProjectedShadow.cpp's queueDecal()), so this
+// costs nothing extra; RadiusDecal just never wrapped Shadow::setSize() before.
+void RadiusDecal::setRadius( Real r )
+{
+	if (m_decal)
+	{
+		m_decal->setSize(r * 2.0f, r * 2.0f);	//radius -> full width/height, matching RadiusDecalTemplate::createRadiusDecal's own radius*2 convention
 	}
 }
 

@@ -71,8 +71,13 @@ private:
 		MAX_SCORCH_VERTEX = 32768,
 		MAX_SCORCH_INDEX = 65535,
 		MAX_SCORCH_MARKS = 500,
-		SCORCH_MARKS_IN_TEXTURE = 9,
-		SCORCH_PER_ROW = 3,
+		// GeneralsMod @feature Dimitar 13/09/2026: bumped from a 3x3/9-cell atlas to a 4x4/16-cell one
+		// for a higher-resolution ScorchTexture (see GlobalData::m_scorchTexture). If you change this,
+		// SCORCH_COUNT in GameType.h's Scorches enum must be updated to match, and the packing
+		// constants in W3DScorch.cpp (SCORCH_TEXTURE_SIZE_PIXELS / SCORCH_TEXTURE_GAP_PIXELS) must stay
+		// consistent with whatever pixel size and grid the actual texture is authored at.
+		SCORCH_MARKS_IN_TEXTURE = 16,
+		SCORCH_PER_ROW = 4,
 	};
 
 	enum WriteScorchResult

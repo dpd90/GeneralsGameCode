@@ -316,6 +316,7 @@ public:
 	// note that this parses in degrees/sec, and converts to rads/frame!
 	static void parseAngularVelocityReal( INI *ini, void *instance, void *store, const void *userData );
 	static void parseDamageTypeFlags(INI* ini, void* instance, void* store, const void* userData);
+	static void parseDisabledMaskType(INI* ini, void* instance, void* store, const void* userData);///< GeneralsMod @feature Dimitar 13/09/2026
 	static void parseDeathTypeFlags(INI* ini, void* instance, void* store, const void* userData);
 	static void parseVeterancyLevelFlags(INI* ini, void* instance, void* store, const void* userData);
 	static void parseSoundsList( INI* ini, void *instance, void *store, const void* /*userData*/ );

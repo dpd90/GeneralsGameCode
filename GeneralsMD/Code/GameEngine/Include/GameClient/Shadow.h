@@ -83,6 +83,7 @@ public:
 						m_sizeY = 0.0f;
 						m_offsetX = 0.0f;
 						m_offsetY = 0.0f;
+						m_allowOffscreenCulling = false;
 				}
 
 				char	m_ShadowName[64];	//when set, overrides the default model shadow (used mostly for Decals).
@@ -93,6 +94,18 @@ public:
 				Real	m_sizeY;			//world size of decal projection
 				Real	m_offsetX;			//world shift along x axis
 				Real	m_offsetY;			//world shift along y axis
+
+				// GeneralsMod @feature Dimitar 14/09/2026: opt-in per-decal flag -- off-screen/fog-of-war
+				// culling in W3DProjectedShadowManager::renderShadows()'s m_decalList loop only applies to
+				// a free-floating decal (no owning robj) when this is explicitly set true. Defaults false
+				// so every existing RadiusDecalTemplate consumer (RadiusDecalUpdate's superweapon/payload
+				// delivery reticles, SpectreGunshipUpdate's targeting reticle, NeutronMissileUpdate,
+				// DynamicShroudClearingRangeUpdate, InGameUI's radius cursors, etc.) keeps showing
+				// unconditionally regardless of the local player's own vision/shroud -- correct for all of
+				// those, since they mark where the local player's OWN action is targeted/landing, not
+				// something that should hide just because that spot hasn't been scouted. Only
+				// DecalUpdateV2 opts in (see its own createRadiusDecal() call site).
+				Bool	m_allowOffscreenCulling;
 		};
 
 		Shadow() : m_diffuse(0xffffffff), m_color(0xffffffff), m_opacity (0x000000ff), m_localAngle(0.0f) {}
@@ -143,6 +156,12 @@ protected:
 		Real	m_decalSizeX;		/// 1/(world space extent of texture in x direction)
 		Real	m_decalSizeY;		/// 1/(world space extent of texture in y direction)
 		Real	m_localAngle;		/// yaw or rotation around z-axis of shadow image when not bound to robj/drawable.
+
+		// GeneralsMod @feature Dimitar 14/09/2026: mirrors ShadowTypeInfo::m_allowOffscreenCulling
+		// above -- copied from there by W3DProjectedShadowManager::addDecal(ShadowTypeInfo*) when a
+		// free-floating decal is created, then read by renderShadows()'s m_decalList loop. See that
+		// field's own comment for the full rationale.
+		Bool	m_allowOffscreenCulling;
 };
 
 
@@ -174,9 +193,14 @@ inline void Shadow::setOpacity(Int value)
 		if (m_type & SHADOW_ADDITIVE_DECAL)
 		{
 			Real fvalue=(Real)m_opacity/255.0f;
+			// GeneralsMod @bugfix Dimitar 12/09/2026: the original code OR'd all three scaled channels
+			// together without ever shifting Green/Red back into their bits 8-23 -- every channel landed
+			// in bits 0-7 (Blue's own slot), so any Color with equal R/G/B (e.g. white) collapsed to a
+			// pure blue diffuse (alpha=0, red=0, green=0, blue=OR of all three) regardless of the actual
+			// color set -- this is why SHADOW_ADDITIVE_DECAL always rendered blue-tinted.
 			m_diffuse=REAL_TO_INT(((Real)(m_color & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue));
+					|(REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue)) << 8)
+					|(REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue)) << 16);
 		}
 	}
 }
@@ -194,9 +218,14 @@ inline void Shadow::setColor(Color value)
 		if (m_type & SHADOW_ADDITIVE_DECAL)
 		{
 			Real fvalue=(Real)m_opacity/255.0f;
+			// GeneralsMod @bugfix Dimitar 12/09/2026: the original code OR'd all three scaled channels
+			// together without ever shifting Green/Red back into their bits 8-23 -- every channel landed
+			// in bits 0-7 (Blue's own slot), so any Color with equal R/G/B (e.g. white) collapsed to a
+			// pure blue diffuse (alpha=0, red=0, green=0, blue=OR of all three) regardless of the actual
+			// color set -- this is why SHADOW_ADDITIVE_DECAL always rendered blue-tinted.
 			m_diffuse=REAL_TO_INT(((Real)(m_color & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue))
-					|REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue));
+					|(REAL_TO_INT(((Real)((m_color >> 8) & 0xff) * fvalue)) << 8)
+					|(REAL_TO_INT(((Real)((m_color >> 16) & 0xff) * fvalue)) << 16);
 		}
 	}
 }

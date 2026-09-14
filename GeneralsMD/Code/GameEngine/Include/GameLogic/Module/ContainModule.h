@@ -174,6 +174,7 @@ public:
 	virtual const ContainedItemsList* getContainedItemsList() const = 0;
 	virtual Bool isContained( const Object *obj ) const = 0;	///< Return whether the object is contained in this module
 	virtual const Object *friend_getRider() const = 0; ///< Damn.  The draw order dependency bug for riders means that our draw module needs to cheat to get around it.
+	virtual void friend_getVisibleRiders( std::vector<const Object*>& riders ) const = 0; ///< Like friend_getRider(), but appends every rider that should be drawn as visibly mounted (for multi-rider containers such as OverlordContainV2). The OpenContain default just wraps friend_getRider().
 	virtual Real getContainedItemsMass() const = 0;
 	virtual UnsignedInt getStealthUnitsContained() const = 0;
 	virtual UnsignedInt getHeroUnitsContained() const = 0;

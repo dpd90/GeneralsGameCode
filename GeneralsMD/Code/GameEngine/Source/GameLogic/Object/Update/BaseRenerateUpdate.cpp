@@ -95,7 +95,7 @@ BaseRegenerateUpdate::~BaseRegenerateUpdate()
 void BaseRegenerateUpdate::onDamage( DamageInfo *damageInfo )
 {
 	if (TheGlobalData->m_baseRegenHealthPercentPerSecond > 0.0 &&
-			damageInfo->in.m_damageType != DAMAGE_HEALING)
+			!IsHealingDamage( damageInfo->in.m_damageType ))
 	{
 		setWakeFrame(getObject(), UPDATE_SLEEP(TheGlobalData->m_baseRegenDelay));
 	}

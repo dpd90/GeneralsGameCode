@@ -78,6 +78,7 @@ void TempWeaponBonusHelper::clearTempWeaponBonus()
 		if( getObject()->getDrawable() )
     {
 			getObject()->getDrawable()->clearTintStatus(TINT_STATUS_FRENZY);
+			getObject()->getDrawable()->clearFrenzyTintColorOverride();///< GeneralsMod @feature Dimitar 08/09/2026: revert to default frenzy color for the next user of this tint status
 //      if (getObject()->isKindOf(KINDOF_INFANTRY))
 //        getObject()->getDrawable()->setSecondMaterialPassOpacity( 0.0f );
     }
@@ -86,7 +87,7 @@ void TempWeaponBonusHelper::clearTempWeaponBonus()
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void TempWeaponBonusHelper::doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration )
+void TempWeaponBonusHelper::doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride )
 {
 	// Clear any different status we may have.  Re-getting the same status will just reset the timer
 	if( m_currentBonus != status )
@@ -98,6 +99,13 @@ void TempWeaponBonusHelper::doTempWeaponBonus( WeaponBonusConditionType status, 
 
 	if( getObject()->getDrawable() )
   {
+		// GeneralsMod @feature Dimitar 08/09/2026: WeaponBonusUpdateV2 supplies its own tint color instead of the
+		// hardcoded FRENZY_COLOR / FRENZY_COLOR_INFANTRY; WeaponBonusUpdate (V1) still passes nullptr here, so its
+		// behavior is unchanged.
+		if( tintColorOverride )
+			getObject()->getDrawable()->setFrenzyTintColorOverride(*tintColorOverride);
+		else
+			getObject()->getDrawable()->clearFrenzyTintColorOverride();
 		getObject()->getDrawable()->setTintStatus(TINT_STATUS_FRENZY);
 //    if (getObject()->isKindOf(KINDOF_INFANTRY))
 //      getObject()->getDrawable()->setSecondMaterialPassOpacity( 1.0f );

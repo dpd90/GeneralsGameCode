@@ -102,6 +102,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "AudioRequest", 256, 8 },
 	{ "AutoHealBehavior", 1024, 256 },
 	{ "WeaponBonusUpdate", 16, 16 },
+	{ "WeaponBonusUpdateV2", 16, 16 },///< GeneralsMod @feature Dimitar 08/09/2026: new module, same pool sizing as WeaponBonusUpdate
+	{ "FireOCLBehaviorV2", 16, 16 },///< GeneralsMod @feature Dimitar 08/09/2026: new module, used the same way (short-lived special-power trigger object)
 	{ "GrantStealthBehavior", 4096, 32 },
 	{ "NeutronBlastBehavior", 4096, 32 },
 	{ "CountermeasuresBehavior", 256, 32 },
@@ -131,6 +133,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "UpgradeDie", 128, 32 },
 	{ "KeepObjectDie", 128, 32 },
 	{ "DozerAIUpdate", 32, 32 },
+	{ "HealAIUpdateV2", 32, 32 },///< GeneralsMod @feature Dimitar 11/09/2026
 	{ "DynamicGeometryInfoUpdate", 16, 16 },
 	{ "DynamicShroudClearingRangeUpdate", 128, 16 },
 	{ "FXListDie", 1024, 32 },
@@ -166,6 +169,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "UndeadBody", 32, 32 },
 	{ "HordeUpdate", 128, 32 },
 	{ "ImmortalBody", 128, 256 },
+	{ "ShieldedBody", 64, 64 },///< GeneralsMod @feature Dimitar 13/09/2026: opt-in ActiveBody subclass for units using ShieldGeneratorUpdateV2
 	{ "InactiveBody", 2048, 32 },
 	{ "InstantDeathBehavior", 512, 32 },
 	{ "LaserUpdate", 32, 32 },
@@ -180,6 +184,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "SpectreGunshipDeploymentUpdate", 8, 8 },
 	{ "BaikonurLaunchPower", 4, 4 },
 	{ "RadiusDecalUpdate", 16, 16 },
+	{ "DecalUpdateV2", 32, 16 },///< GeneralsMod @feature Dimitar 12/09/2026: new module, capped by GameData.ini MaxDecalCount (default 32)
+	{ "PersistentDecalUpdateV2", 32, 16 },///< GeneralsMod @feature Dimitar 14/09/2026: new module, one per unit template instance that triggers it, no hard cap like DecalUpdateV2's MaxDecalCount
 	{ "BattlePlanUpdate", 32, 32 },
 	{ "LifetimeUpdate", 32, 32 },
 	{ "LocomotorSetUpgrade", 512, 128 },
@@ -191,6 +197,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "OpenContain", 128, 32 },
 	{ "OverchargeBehavior", 32, 32 },
 	{ "OverlordContain", 32, 32 },
+	{ "OverlordContainV2", 32, 32 },
 	{ "HelixContain", 32, 32 },
 	{ "ParachuteContain", 128, 32 },
 	{ "PhysicsBehavior", 600, 32 },
@@ -234,6 +241,11 @@ static PoolSizeRec PoolSizes[] =
 	{ "PreorderCreate", 32, 32 },
 	{ "SpecialAbility", 512, 32 },
 	{ "SpecialAbilityUpdate", 512, 32 },
+	{ "SwitchStateV2Activate", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, used the same way (short-lived special-power trigger object)
+	{ "SwitchStateV2", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, paired worker for SwitchStateV2Activate
+	{ "SwitchStateWhenDamagedBehaviorV2", 16, 16 },///< GeneralsMod @feature Dimitar 11/09/2026: new module, automatic damage-triggered counterpart to SwitchStateV2Activate
+	{ "ShieldGeneratorUpdateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026, renamed 13/09/2026: temporary absorption-pool shield (paired worker for ShieldGeneratorActivateV2)
+	{ "ShieldGeneratorActivateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026: new module, button-facing half of ShieldGeneratorUpdateV2
 	{ "MissileLauncherBuildingUpdate", 32, 32 },
 	{ "SquishCollide", 512, 32 },
 	{ "StructureBody", 512, 64 },
@@ -297,6 +309,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "W3DDependencyModelDraw", 64, 64 },
 	{ "W3DLaserDraw", 32, 32 },
 	{ "W3DModelDraw", 2048, 512 },
+	{ "W3DPersistentAnimModelDraw", 64, 64 },///< GeneralsMod @feature Dimitar 13/09/2026: opt-in W3DModelDraw subclass, animates through configurable DisabledTypes
 	{ "W3DOverlordTankDraw", 64, 64 },
 	{ "W3DOverlordTruckDraw", 64, 64 },
 	{ "W3DOverlordAircraftDraw", 64, 64 },

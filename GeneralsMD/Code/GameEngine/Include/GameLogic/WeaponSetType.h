@@ -57,5 +57,11 @@ enum WeaponSetType CPP_11(: Int)
 	WEAPONSET_RIDER7,
 	WEAPONSET_RIDER8,
 
+	// GeneralsMod @feature Dimitar 11/09/2026: lets a module keep a real weapon
+	// (e.g. a healing weapon) off a unit's normally-orderable weapon slot by default, only swapping
+	// it in via a WeaponSet{ Conditions = HEALING_DETAIL ... } block while the module itself has this
+	// flag set -- same pattern WEAPONSET_MINE_CLEARING_DETAIL uses for DozerMineDisarmingWeapon.
+	WEAPONSET_HEALING_DETAIL,
+
 	WEAPONSET_COUNT
 };

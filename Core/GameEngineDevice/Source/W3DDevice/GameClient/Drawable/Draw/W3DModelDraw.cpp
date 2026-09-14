@@ -755,6 +755,7 @@ void ModelConditionInfo::validateWeaponBarrelInfo() const
 		if (fxBoneName.isNotEmpty() || recoilBoneName.isNotEmpty() || mfName.isNotEmpty() || plbName.isNotEmpty())
 		{
 			Int prevFxBone = 0;
+			AsciiString prevFxBoneName;// GeneralsMod @feature Dimitar 08/09/2026
 			char buffer[256];
 			for (Int i = 1; i <= 99; ++i)
 			{
@@ -779,9 +780,14 @@ void ModelConditionInfo::validateWeaponBarrelInfo() const
 				{
 					snprintf(buffer, ARRAY_SIZE(buffer), "%s%02d", fxBoneName.str(), i);
 					findPristineBone(NAMEKEY(buffer), &info.m_fxBone);
+					if (info.m_fxBone != 0)
+						info.m_fxBoneName = buffer;// GeneralsMod @feature Dimitar 08/09/2026
 					// special case: if we have multiple muzzleflashes, but only one fxbone, use that fxbone for everything.
 					if (info.m_fxBone == 0 && info.m_muzzleFlashBone != 0)
+					{
 						info.m_fxBone = prevFxBone;
+						info.m_fxBoneName = prevFxBoneName;// GeneralsMod @feature Dimitar 08/09/2026
+					}
 				}
 
 				Int plbBoneIndex = 0;
@@ -806,6 +812,7 @@ void ModelConditionInfo::validateWeaponBarrelInfo() const
 					m_hasRecoilBonesOrMuzzleFlashes[wslot] = true;
 
 				prevFxBone = info.m_fxBone;
+				prevFxBoneName = info.m_fxBoneName;// GeneralsMod @feature Dimitar 08/09/2026
 			}
 
 			if (m_weaponBarrelInfoVec[wslot].empty())
@@ -830,7 +837,11 @@ void ModelConditionInfo::validateWeaponBarrelInfo() const
 					info.m_projectileOffsetMtx.Make_Identity();
 
 				if (!fxBoneName.isEmpty())
+				{
 					findPristineBone(NAMEKEY(fxBoneName), &info.m_fxBone);
+					if (info.m_fxBone != 0)
+						info.m_fxBoneName = fxBoneName;// GeneralsMod @feature Dimitar 08/09/2026
+				}
 
 				if (info.m_fxBone != 0 || info.m_recoilBone != 0 || info.m_muzzleFlashBone != 0 || plbMtx != nullptr)
 				{
@@ -2758,6 +2769,39 @@ void W3DModelDraw::setTerrainDecal(TerrainDecalType type)
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 14/09/2026: sibling to setTerrainDecal() above -- identical
+// object-bound addDecal() call (same free culling/shroud behavior), but the texture name, size,
+// and now style come straight from the caller (PersistentDecalUpdateV2's own INI data) instead of
+// the fixed TerrainDecalTextureName[] table or the ThingTemplate's ShadowTexture/ShadowSizeX/Y.
+// Reuses the same m_terrainDecal slot -- only one decal (of either kind) per drawable at a time.
+void W3DModelDraw::setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style)
+{
+	if (m_terrainDecal)
+		m_terrainDecal->release();
+
+	m_terrainDecal = nullptr;
+
+	if (textureName.isEmpty())
+		//turning off the decal on this object.
+		return;
+
+	//create a new terrain decal
+	Shadow::ShadowTypeInfo decalInfo;
+	decalInfo.allowUpdates = FALSE;	//shadow image will never update
+	decalInfo.allowWorldAlign = TRUE;	//shadow image will wrap around world objects
+	decalInfo.m_type = style;	//GeneralsMod @feature Dimitar 14/09/2026: caller-chosen (SHADOW_ALPHA_DECAL or SHADOW_ADDITIVE_DECAL), was hardcoded to SHADOW_ALPHA_DECAL
+	strlcpy(decalInfo.m_ShadowName, textureName.str(), ARRAY_SIZE(decalInfo.m_ShadowName));
+	decalInfo.m_sizeX = sizeX;
+	decalInfo.m_sizeY = sizeY;
+	if (TheProjectedShadowManager)
+		m_terrainDecal = TheProjectedShadowManager->addDecal(m_renderObject,&decalInfo);
+	if (m_terrainDecal)
+	{	m_terrainDecal->enableShadowInvisible(m_fullyObscuredByShroud);
+		m_terrainDecal->enableShadowRender(m_shadowEnabled);
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 void W3DModelDraw::setTerrainDecalSize(Real x, Real y)
 {
 	if (m_terrainDecal)
@@ -3686,6 +3730,24 @@ Int W3DModelDraw::getBarrelCount(WeaponSlotType wslot) const
 {
 	return (m_curState && (m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID)) ?
 		m_curState->m_weaponBarrelInfoVec[wslot].size() : 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 08/09/2026: lets a laser weapon with no explicit LaserBoneName resolve
+// the same per-barrel WeaponFireFXBone the engine already alternates real projectiles/muzzle FX through.
+AsciiString W3DModelDraw::getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const
+{
+	if (!m_curState || !(m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID))
+		return AsciiString::TheEmptyString;
+
+	const ModelConditionInfo::WeaponBarrelInfoVec& wbvec = m_curState->m_weaponBarrelInfoVec[wslot];
+	if (wbvec.empty())
+		return AsciiString::TheEmptyString;
+
+	if (specificBarrelToUse < 0 || specificBarrelToUse >= wbvec.size())
+		specificBarrelToUse = 0;
+
+	return wbvec[specificBarrelToUse].m_fxBoneName;
 }
 
 //-------------------------------------------------------------------------------------------------

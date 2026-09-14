@@ -44,6 +44,7 @@
 // behavior includes
 #include "GameLogic/Module/AutoHealBehavior.h"
 #include "GameLogic/Module/GrantStealthBehavior.h"
+#include "GameLogic/Module/FireOCLBehaviorV2.h"///< GeneralsMod @feature Dimitar 08/09/2026
 #include "GameLogic/Module/NeutronBlastBehavior.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BridgeBehavior.h"
@@ -67,6 +68,7 @@
 #include "GameLogic/Module/MobNexusContain.h"
 #include "GameLogic/Module/TunnelContain.h"
 #include "GameLogic/Module/OverlordContain.h"
+#include "GameLogic/Module/OverlordContainV2.h"
 #include "GameLogic/Module/HelixContain.h"
 #include "GameLogic/Module/ParachuteContain.h"
 #ifdef ALLOW_SURRENDER
@@ -114,6 +116,7 @@
 #include "GameLogic/Module/SmartBombTargetHomingUpdate.h"
 #include "GameLogic/Module/DeliverPayloadAIUpdate.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/Module/HealAIUpdateV2.h"///< GeneralsMod @feature Dimitar 11/09/2026
 #include "GameLogic/Module/DynamicGeometryInfoUpdate.h"
 #include "GameLogic/Module/DynamicShroudClearingRangeUpdate.h"
 #include "GameLogic/Module/EnemyNearUpdate.h"
@@ -143,6 +146,8 @@
 #include "GameLogic/Module/BattlePlanUpdate.h"
 #include "GameLogic/Module/LifetimeUpdate.h"
 #include "GameLogic/Module/RadiusDecalUpdate.h"
+#include "GameLogic/Module/DecalUpdateV2.h"
+#include "GameLogic/Module/PersistentDecalUpdateV2.h"
 #include "GameLogic/Module/AutoDepositUpdate.h"
 #include "GameLogic/Module/MissileAIUpdate.h"
 #include "GameLogic/Module/NeutronMissileUpdate.h"
@@ -166,6 +171,8 @@
 #include "GameLogic/Module/SlavedUpdate.h"
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"
 #include "GameLogic/Module/SpecialAbilityUpdate.h"
+#include "GameLogic/Module/SwitchStateV2.h"
+#include "GameLogic/Module/ShieldGeneratorUpdateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/MissileLauncherBuildingUpdate.h"
 #include "GameLogic/Module/StealthDetectorUpdate.h"
 #include "GameLogic/Module/StealthUpdate.h"
@@ -186,6 +193,7 @@
 #include "GameLogic/Module/WanderAIUpdate.h"
 #include "GameLogic/Module/WaveGuideUpdate.h"
 #include "GameLogic/Module/WeaponBonusUpdate.h"
+#include "GameLogic/Module/WeaponBonusUpdateV2.h"///< GeneralsMod @feature Dimitar 08/09/2026
 #include "GameLogic/Module/WorkerAIUpdate.h"
 #include "GameLogic/Module/PowerPlantUpdate.h"
 #include "GameLogic/Module/CheckpointUpdate.h"
@@ -225,6 +233,7 @@
 // damage includes
 #include "GameLogic/Module/BoneFXDamage.h"
 #include "GameLogic/Module/TransitionDamageFX.h"
+#include "GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h"///< GeneralsMod @feature Dimitar 11/09/2026
 
 // collide includes
 #include "GameLogic/Module/FireWeaponCollide.h"
@@ -252,6 +261,7 @@
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/HighlanderBody.h"
 #include "GameLogic/Module/ImmortalBody.h"
+#include "GameLogic/Module/ShieldedBody.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/StructureBody.h"
 #include "GameLogic/Module/HiveStructureBody.h"
 #include "GameLogic/Module/UndeadBody.h"
@@ -267,6 +277,8 @@
 #endif
 #include "GameLogic/Module/OCLSpecialPower.h"
 #include "GameLogic/Module/SpecialAbility.h"
+#include "GameLogic/Module/SwitchStateV2Activate.h"
+#include "GameLogic/Module/ShieldGeneratorActivateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/SpyVisionSpecialPower.h"
 #include "GameLogic/Module/CashBountyPower.h"
 #include "GameLogic/Module/CleanupAreaPower.h"
@@ -321,6 +333,7 @@ void ModuleFactory::init()
 	// behavior modules
 	addModule( AutoHealBehavior );
 	addModule( GrantStealthBehavior );
+	addModule( FireOCLBehaviorV2 );///< GeneralsMod @feature Dimitar 08/09/2026
 	addModule( NeutronBlastBehavior );
 	addModule( BridgeBehavior );
 	addModule( BridgeScaffoldBehavior );
@@ -344,6 +357,7 @@ void ModuleFactory::init()
 	addModule( MobNexusContain );
 	addModule( TunnelContain );
 	addModule( OverlordContain );
+	addModule( OverlordContainV2 );
 	addModule( HelixContain );
 	addModule( ParachuteContain );
 #ifdef ALLOW_SURRENDER
@@ -397,10 +411,13 @@ void ModuleFactory::init()
 	addModule( EnemyNearUpdate );
 	addModule( LifetimeUpdate );
 	addModule( RadiusDecalUpdate );
+	addModule( DecalUpdateV2 );
+	addModule( PersistentDecalUpdateV2 );
 	addModule( EMPUpdate );
   addModule( LeafletDropBehavior );
 	addModule( AutoDepositUpdate );
 	addModule( WeaponBonusUpdate );
+	addModule( WeaponBonusUpdateV2 );///< GeneralsMod @feature Dimitar 08/09/2026
 	addModule( MissileAIUpdate );
 	addModule( NeutronMissileUpdate );
 	addModule( FireSpreadUpdate );
@@ -442,11 +459,14 @@ void ModuleFactory::init()
 	addModule( MobMemberSlavedUpdate );
 	addModule( OCLUpdate );
 	addModule( SpecialAbilityUpdate );
+	addModule( SwitchStateV2 );
+	addModule( ShieldGeneratorUpdateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( MissileLauncherBuildingUpdate );
 	addModule( SupplyCenterProductionExitUpdate );
 	addModule( SupplyCenterDockUpdate );
 	addModule( SupplyWarehouseDockUpdate );
 	addModule( DozerAIUpdate );
+	addModule( HealAIUpdateV2 );///< GeneralsMod @feature Dimitar 11/09/2026
 #ifdef ALLOW_SURRENDER
 	addModule( POWTruckAIUpdate );
 #endif
@@ -503,6 +523,7 @@ void ModuleFactory::init()
 	// damage modules
 	addModule( BoneFXDamage );
 	addModule( TransitionDamageFX );
+	addModule( SwitchStateWhenDamagedBehaviorV2 );///< GeneralsMod @feature Dimitar 11/09/2026
 
 	// collide modules
 	addModule( FireWeaponCollide );
@@ -530,6 +551,7 @@ void ModuleFactory::init()
 	addModule( ActiveBody );
 	addModule( HighlanderBody );
 	addModule( ImmortalBody );
+	addModule( ShieldedBody );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( StructureBody );
 	addModule( HiveStructureBody );
 	addModule( UndeadBody );
@@ -546,6 +568,8 @@ void ModuleFactory::init()
 	addModule( OCLSpecialPower );
 	addModule( FireWeaponPower );
 	addModule( SpecialAbility );
+	addModule( SwitchStateV2Activate );
+	addModule( ShieldGeneratorActivateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( SpyVisionSpecialPower );
 	addModule( CashBountyPower );
 	addModule( CleanupAreaPower );

@@ -293,6 +293,8 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/CrushDie.h
     Include/GameLogic/Module/DamageModule.h
     Include/GameLogic/Module/DamDie.h
+    Include/GameLogic/Module/DecalUpdateV2.h
+    Include/GameLogic/Module/PersistentDecalUpdateV2.h
     Include/GameLogic/Module/DefaultProductionExitUpdate.h
     Include/GameLogic/Module/DefectorSpecialPower.h
     Include/GameLogic/Module/DeletionUpdate.h
@@ -328,8 +330,10 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/GenerateMinefieldBehavior.h
     Include/GameLogic/Module/GrantScienceUpgrade.h
     Include/GameLogic/Module/GrantStealthBehavior.h
+    Include/GameLogic/Module/FireOCLBehaviorV2.h
     Include/GameLogic/Module/GrantUpgradeCreate.h
     Include/GameLogic/Module/HackInternetAIUpdate.h
+    Include/GameLogic/Module/HealAIUpdateV2.h
     Include/GameLogic/Module/HealContain.h
     Include/GameLogic/Module/HealCrateCollide.h
     Include/GameLogic/Module/HeightDieUpdate.h
@@ -340,6 +344,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/HiveStructureBody.h
     Include/GameLogic/Module/HordeUpdate.h
     Include/GameLogic/Module/ImmortalBody.h
+    Include/GameLogic/Module/ShieldedBody.h
     Include/GameLogic/Module/InactiveBody.h
     Include/GameLogic/Module/InstantDeathBehavior.h
     Include/GameLogic/Module/InternetHackContain.h
@@ -372,6 +377,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/OpenContain.h
     Include/GameLogic/Module/OverchargeBehavior.h
     Include/GameLogic/Module/OverlordContain.h
+    Include/GameLogic/Module/OverlordContainV2.h
     Include/GameLogic/Module/ParachuteContain.h
     Include/GameLogic/Module/ParkingPlaceBehavior.h
     Include/GameLogic/Module/ParticleUplinkCannonUpdate.h
@@ -449,6 +455,11 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/SupplyWarehouseCreate.h
     Include/GameLogic/Module/SupplyWarehouseCripplingBehavior.h
     Include/GameLogic/Module/SupplyWarehouseDockUpdate.h
+    Include/GameLogic/Module/SwitchStateV2.h
+    Include/GameLogic/Module/SwitchStateV2Activate.h
+    Include/GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h
+    Include/GameLogic/Module/ShieldGeneratorUpdateV2.h
+    Include/GameLogic/Module/ShieldGeneratorActivateV2.h
     Include/GameLogic/Module/TechBuildingBehavior.h
     Include/GameLogic/Module/TempWeaponBonusHelper.h
     Include/GameLogic/Module/TensileFormationUpdate.h
@@ -468,6 +479,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/WanderAIUpdate.h
     Include/GameLogic/Module/WaveGuideUpdate.h
     Include/GameLogic/Module/WeaponBonusUpdate.h
+    Include/GameLogic/Module/WeaponBonusUpdateV2.h
     Include/GameLogic/Module/WeaponBonusUpgrade.h
     Include/GameLogic/Module/WeaponSetUpgrade.h
     Include/GameLogic/Module/WorkerAIUpdate.h
@@ -852,6 +864,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Behavior/FlightDeckBehavior.cpp
     Source/GameLogic/Object/Behavior/GenerateMinefieldBehavior.cpp
     Source/GameLogic/Object/Behavior/GrantStealthBehavior.cpp
+    Source/GameLogic/Object/Behavior/FireOCLBehaviorV2.cpp
     Source/GameLogic/Object/Behavior/InstantDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/JetSlowDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/MinefieldBehavior.cpp
@@ -867,12 +880,14 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Behavior/SlowDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/SpawnBehavior.cpp
     Source/GameLogic/Object/Behavior/SupplyWarehouseCripplingBehavior.cpp
+    Source/GameLogic/Object/Behavior/SwitchStateWhenDamagedBehaviorV2.cpp
     Source/GameLogic/Object/Behavior/TechBuildingBehavior.cpp
     Source/GameLogic/Object/Body/ActiveBody.cpp
     Source/GameLogic/Object/Body/BodyModule.cpp
     Source/GameLogic/Object/Body/HighlanderBody.cpp
     Source/GameLogic/Object/Body/HiveStructureBody.cpp
     Source/GameLogic/Object/Body/ImmortalBody.cpp
+    Source/GameLogic/Object/Body/ShieldedBody.cpp
     Source/GameLogic/Object/Body/InactiveBody.cpp
     Source/GameLogic/Object/Body/StructureBody.cpp
     Source/GameLogic/Object/Body/UndeadBody.cpp
@@ -904,6 +919,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Contain/MobNexusContain.cpp
     Source/GameLogic/Object/Contain/OpenContain.cpp
     Source/GameLogic/Object/Contain/OverlordContain.cpp
+    Source/GameLogic/Object/Contain/OverlordContainV2.cpp
     Source/GameLogic/Object/Contain/ParachuteContain.cpp
     Source/GameLogic/Object/Contain/RailedTransportContain.cpp
     Source/GameLogic/Object/Contain/RiderChangeContain.cpp
@@ -961,12 +977,15 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/SpecialPower/SpecialAbility.cpp
     Source/GameLogic/Object/SpecialPower/SpecialPowerModule.cpp
     Source/GameLogic/Object/SpecialPower/SpyVisionSpecialPower.cpp
+    Source/GameLogic/Object/SpecialPower/SwitchStateV2Activate.cpp
+    Source/GameLogic/Object/SpecialPower/ShieldGeneratorActivateV2.cpp
     Source/GameLogic/Object/Update/AIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/AssaultTransportAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/ChinookAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/DeliverPayloadAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/DeployStyleAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/DozerAIUpdate.cpp
+    Source/GameLogic/Object/Update/AIUpdate/HealAIUpdateV2.cpp
     Source/GameLogic/Object/Update/AIUpdate/HackInternetAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/JetAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/MissileAIUpdate.cpp
@@ -987,6 +1006,8 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/CheckpointUpdate.cpp
     Source/GameLogic/Object/Update/CleanupHazardUpdate.cpp
     Source/GameLogic/Object/Update/CommandButtonHuntUpdate.cpp
+    Source/GameLogic/Object/Update/DecalUpdateV2.cpp
+    Source/GameLogic/Object/Update/PersistentDecalUpdateV2.cpp
     Source/GameLogic/Object/Update/DeletionUpdate.cpp
     Source/GameLogic/Object/Update/DemoTrapUpdate.cpp
     Source/GameLogic/Object/Update/DockUpdate/DockUpdate.cpp
@@ -1042,11 +1063,14 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/StickyBombUpdate.cpp
     Source/GameLogic/Object/Update/StructureCollapseUpdate.cpp
     Source/GameLogic/Object/Update/StructureToppleUpdate.cpp
+    Source/GameLogic/Object/Update/SwitchStateV2.cpp
+    Source/GameLogic/Object/Update/ShieldGeneratorUpdateV2.cpp
     Source/GameLogic/Object/Update/TensileFormationUpdate.cpp
     Source/GameLogic/Object/Update/ToppleUpdate.cpp
     Source/GameLogic/Object/Update/UpdateModule.cpp
     Source/GameLogic/Object/Update/WaveGuideUpdate.cpp
     Source/GameLogic/Object/Update/WeaponBonusUpdate.cpp
+    Source/GameLogic/Object/Update/WeaponBonusUpdateV2.cpp
     Source/GameLogic/Object/Upgrade/ActiveShroudUpgrade.cpp
     Source/GameLogic/Object/Upgrade/ArmorUpgrade.cpp
     Source/GameLogic/Object/Upgrade/CommandSetUpgrade.cpp

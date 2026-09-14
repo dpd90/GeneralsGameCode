@@ -59,6 +59,7 @@ public:
 class Thing;
 class RenderObjClass;
 class Shadow;
+enum ShadowType : Int;	///<GeneralsMod @feature Dimitar 14/09/2026
 class TerrainTracksRenderObjClass;
 class HAnimClass;
 enum GameLODLevel CPP_11(: Int);
@@ -175,6 +176,9 @@ struct ModelConditionInfo
 		Int							m_fxBone;											///< the FX bone for this barrel (zero == no bone)
 		Int							m_muzzleFlashBone;						///< the muzzle-flash subobj bone for this barrel (zero == none)
 		Matrix3D				m_projectileOffsetMtx;				///< where the projectile fires from
+		// GeneralsMod @feature Dimitar 08/09/2026: kept (not debug-only) so laser weapons without an
+		// explicit LaserBoneName can resolve the actual per-barrel fx bone name at runtime.
+		AsciiString			m_fxBoneName;
 #if defined(RTS_DEBUG) || defined(DEBUG_CRASHING)
 		AsciiString			m_muzzleFlashBoneName;
 #endif
@@ -190,6 +194,7 @@ struct ModelConditionInfo
 			m_fxBone = 0;
 			m_muzzleFlashBone = 0;
 			m_projectileOffsetMtx.Make_Identity();
+			m_fxBoneName.clear();
 #if defined(RTS_DEBUG) || defined(DEBUG_CRASHING)
 			m_muzzleFlashBoneName.clear();
 #endif
@@ -363,6 +368,7 @@ public:
 
 	virtual void setFullyObscuredByShroud(Bool fullyObscured) override;
 	virtual void setTerrainDecal(TerrainDecalType type) override;
+	virtual void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style) override;	///<GeneralsMod @feature Dimitar 14/09/2026
 
 	virtual Bool isVisible() const override;
 	virtual void reactToTransformChange(const Matrix3D* oldMtx, const Coord3D* oldPos, Real oldAngle) override;
@@ -385,6 +391,7 @@ public:
 	virtual void replaceIndicatorColor(Color color) override;
 	virtual Bool handleWeaponFireFX(WeaponSlotType wslot, Int specificBarrelToUse, const FXList* fxl, Real weaponSpeed, const Coord3D* victimPos, Real damageRadius) override;
 	virtual Int getBarrelCount(WeaponSlotType wslot) const override;
+	virtual AsciiString getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const override;///< GeneralsMod @feature Dimitar 08/09/2026
 	virtual void setSelectable(Bool selectable) override; // Change the selectability of the model.
 
 	/**

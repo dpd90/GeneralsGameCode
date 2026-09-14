@@ -39,6 +39,7 @@
 class Matrix3D;
 class RenderCost;
 class OBBoxClass;
+enum ShadowType : Int;	///<GeneralsMod @feature Dimitar 14/09/2026: forward-declared like Shadow.h's own RadiusDecal.h precedent -- avoids pulling the full Shadow.h include in here just for the enum type
 
 // TYPES //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -82,6 +83,17 @@ public:
 	virtual void setTerrainDecal(TerrainDecalType type) {};
 	virtual void setTerrainDecalSize(Real x, Real y) {};
 	virtual void setTerrainDecalOpacity(Real o) {};
+
+	// GeneralsMod @feature Dimitar 14/09/2026: mechanical sync only -- PersistentDecalUpdateV2 and
+	// everything that uses this is GeneralsMD (Zero Hour) only and never runs in this Generals/
+	// build (see this mod's own "Generals/ deliberately left alone" scope rule), but W3DModelDraw
+	// (Core/GameEngineDevice, genuinely shared between both game targets) overrides this method, and
+	// DrawModule itself is NOT shared (GeneralsMD/ and Generals/ each have their own separate copy of
+	// this header) -- so the override has to exist here too, as an inert no-op, purely so the shared
+	// W3DModelDraw override still matches something when this file compiles for RTS_GENERALS. Keep
+	// this signature byte-for-byte in sync with GeneralsMD's own copy of DrawModule.h whenever that
+	// one changes, or the Generals/ build breaks with "did not override any base class methods".
+	virtual void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style) {};
 
 	virtual void setFullyObscuredByShroud(Bool fullyObscured) = 0;
 
@@ -185,6 +197,11 @@ public:
 	virtual void replaceIndicatorColor(Color color) = 0;
 	virtual Bool handleWeaponFireFX(WeaponSlotType wslot, Int specificBarrelToUse, const FXList* fxl, Real weaponSpeed, const Coord3D* victimPos, Real damageRadius) = 0;
 	virtual Int getBarrelCount(WeaponSlotType wslot) const = 0;
+	// GeneralsMod @feature Dimitar 08/09/2026: resolved bone name (e.g. "WEAPONA02") for the given
+	// barrel of this weapon slot, or an empty AsciiString if none is available. Lets code outside the
+	// Draw module (e.g. laser weapon firing) resolve the same per-barrel bone the engine already
+	// alternates real projectiles/muzzle FX through, instead of requiring one fixed literal bone name.
+	virtual AsciiString getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const = 0;
 
 	virtual void setSelectable(Bool selectable) = 0;
 

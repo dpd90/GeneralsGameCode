@@ -687,7 +687,9 @@ public:
 	void newProjectileFired( const Object *sourceObj, const Object *projectile, const Object *victimObj, const Coord3D *victimPos );///<I just made this projectile and may need to keep track of it
 
 	Bool isLaser() const { return m_template->getLaserName().isNotEmpty(); }
-	void createLaser( const Object *sourceObj, const Object *victimObj, const Coord3D *victimPos );
+	// GeneralsMod @feature Dimitar 08/09/2026: added wslot/specificBarrelToUse so createLaser() can
+	// resolve a per-barrel bone name when the weapon's LaserBoneName is left unset.
+	void createLaser( const Object *sourceObj, const Object *victimObj, const Coord3D *victimPos, WeaponSlotType wslot, Int specificBarrelToUse );
 
 	const WeaponTemplate* getTemplate() const { return m_template; }
 	WeaponSlotType getWeaponSlot() const { return m_wslot; }

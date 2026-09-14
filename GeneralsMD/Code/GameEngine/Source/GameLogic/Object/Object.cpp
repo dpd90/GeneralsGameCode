@@ -1924,7 +1924,7 @@ void Object::attemptDamage( DamageInfo *damageInfo )
 	//
 	if( damageInfo->out.m_actualDamageDealt > 0.0f &&
 			damageInfo->in.m_damageType != DAMAGE_PENALTY &&
-			damageInfo->in.m_damageType != DAMAGE_HEALING &&
+			!IsHealingDamage( damageInfo->in.m_damageType ) &&
 			getControllingPlayer() &&
 			!BitIsSet(damageInfo->in.m_sourcePlayerMask, getControllingPlayer()->getPlayerMask()) &&
 			m_radarData != nullptr &&
@@ -5344,10 +5344,10 @@ void Object::doStatusDamage( ObjectStatusTypes status, Real duration )
 }
 
 //-------------------------------------------------------------------------------------------------
-void Object::doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration )
+void Object::doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride )
 {
 	if(m_tempWeaponBonusHelper)
-		m_tempWeaponBonusHelper->doTempWeaponBonus(status, duration);
+		m_tempWeaponBonusHelper->doTempWeaponBonus(status, duration, tintColorOverride);
 }
 
 //-------------------------------------------------------------------------------------------------
