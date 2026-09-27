@@ -395,7 +395,11 @@ void ActiveBody::attemptDamage( DamageInfo *damageInfo )
 				//forcing the rider to leave the bike. That way the bike will automatically
 				//scuttle and be unusable.
 				ContainModuleInterface *contain = obj->getContain();
-				if( contain && contain->isRiderChangeContain() )
+				if( contain && contain->isRiderChangeContain() && contain->handleKillPilot( damager ) )
+				{
+					// GeneralsMod @feature Dimitar 26/09/2026: container handled it (e.g. RiderChangeContainV2 ScuttleOnDeath = No).
+				}
+				else if( contain && contain->isRiderChangeContain() )
 				{
 
 					AIUpdateInterface *ai = obj->getAI();
@@ -569,6 +573,9 @@ void ActiveBody::attemptDamage( DamageInfo *damageInfo )
 		// record the actual damage done from this, and when it happened
 		damageInfo->out.m_actualDamageDealt = amount;
 		damageInfo->out.m_actualDamageClipped = m_prevHealth - m_currentHealth;
+		// GeneralsMod @feature Dimitar 19/09/2026: health before this hit, for OverkillPercentage-
+		// style checks (see Damage.h m_healthBeforeDamage comment).
+		damageInfo->out.m_healthBeforeDamage = m_prevHealth;
 
 		// then copy the whole DamageInfo struct for easy lookup
 		// (object pointer loses scope as soon as atteptdamage's caller ends)
@@ -841,6 +848,9 @@ void ActiveBody::attemptHealing( DamageInfo *damageInfo )
 		// record the actual damage done from this, and when it happened
 		damageInfo->out.m_actualDamageDealt = amount;
 		damageInfo->out.m_actualDamageClipped = m_prevHealth - m_currentHealth;
+		// GeneralsMod @feature Dimitar 19/09/2026: health before this hit, for OverkillPercentage-
+		// style checks (see Damage.h m_healthBeforeDamage comment).
+		damageInfo->out.m_healthBeforeDamage = m_prevHealth;
 
 		//then copy the whole DamageInfo struct for easy lookup
 		//(object pointer loses scope as soon as atteptdamage's caller ends)

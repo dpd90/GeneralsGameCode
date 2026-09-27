@@ -53,7 +53,6 @@
 #include "GameLogic/Module/CountermeasuresBehavior.h"
 #include "GameLogic/Module/DumbProjectileBehavior.h"
 #include "GameLogic/Module/InstantDeathBehavior.h"
-#include "GameLogic/Module/BreakApartDeathBehaviorV2.h"
 #include "GameLogic/Module/SlowDeathBehavior.h"
 #include "GameLogic/Module/HelicopterSlowDeathUpdate.h"
 #include "GameLogic/Module/NeutronMissileSlowDeathUpdate.h"
@@ -65,7 +64,6 @@
 #include "GameLogic/Module/InternetHackContain.h"
 #include "GameLogic/Module/RailedTransportContain.h"
 #include "GameLogic/Module/RiderChangeContain.h"
-#include "GameLogic/Module/RiderChangeContainV2.h"
 #include "GameLogic/Module/TransportContain.h"
 #include "GameLogic/Module/MobNexusContain.h"
 #include "GameLogic/Module/TunnelContain.h"
@@ -136,8 +134,6 @@
 #include "GameLogic/Module/JetAIUpdate.h"
 #include "GameLogic/Module/LaserUpdate.h"
 #include "GameLogic/Module/PointDefenseLaserUpdate.h"
-#include "GameLogic/Module/PointDefenseUpdateV2.h"
-#include "GameLogic/Module/ProjectileClipFeedbackUpdateV2.h"
 #include "GameLogic/Module/CleanupHazardUpdate.h"
 #include "GameLogic/Module/AutoFindHealingUpdate.h"
 #include "GameLogic/Module/CommandButtonHuntUpdate.h"
@@ -154,7 +150,6 @@
 #include "GameLogic/Module/PersistentDecalUpdateV2.h"
 #include "GameLogic/Module/AutoDepositUpdate.h"
 #include "GameLogic/Module/MissileAIUpdate.h"
-#include "GameLogic/Module/MissileAIUpdateV2.h"///< GeneralsMod @feature Dimitar 25/09/2026
 #include "GameLogic/Module/NeutronMissileUpdate.h"
 #include "GameLogic/Module/OCLUpdate.h"
 #include "GameLogic/Module/PhysicsUpdate.h"
@@ -178,7 +173,6 @@
 #include "GameLogic/Module/SpecialAbilityUpdate.h"
 #include "GameLogic/Module/SwitchStateV2.h"
 #include "GameLogic/Module/ShieldGeneratorUpdateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
-#include "GameLogic/Module/DamageOverTimeUpdateV2.h"///< GeneralsMod @feature Dimitar 15/09/2026
 #include "GameLogic/Module/MissileLauncherBuildingUpdate.h"
 #include "GameLogic/Module/StealthDetectorUpdate.h"
 #include "GameLogic/Module/StealthUpdate.h"
@@ -239,7 +233,6 @@
 // damage includes
 #include "GameLogic/Module/BoneFXDamage.h"
 #include "GameLogic/Module/TransitionDamageFX.h"
-#include "GameLogic/Module/ContainedTransitionDamageFXV2.h"
 #include "GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h"///< GeneralsMod @feature Dimitar 11/09/2026
 
 // collide includes
@@ -349,7 +342,6 @@ void ModuleFactory::init()
 	addModule( DumbProjectileBehavior );
 	addModule( PhysicsBehavior );
 	addModule( InstantDeathBehavior );
-	addModule( BreakApartDeathBehaviorV2 );
 	addModule( SlowDeathBehavior );
 	addModule( HelicopterSlowDeathBehavior );
 	addModule( NeutronMissileSlowDeathBehavior );
@@ -361,7 +353,6 @@ void ModuleFactory::init()
 	addModule( InternetHackContain );
 	addModule( TransportContain );
 	addModule( RiderChangeContain );
-	addModule( RiderChangeContainV2 );
 	addModule( RailedTransportContain );
 	addModule( MobNexusContain );
 	addModule( TunnelContain );
@@ -428,7 +419,6 @@ void ModuleFactory::init()
 	addModule( WeaponBonusUpdate );
 	addModule( WeaponBonusUpdateV2 );///< GeneralsMod @feature Dimitar 08/09/2026
 	addModule( MissileAIUpdate );
-	addModule( MissileAIUpdateV2 );///< GeneralsMod @feature Dimitar 25/09/2026
 	addModule( NeutronMissileUpdate );
 	addModule( FireSpreadUpdate );
 	addModule( FireWeaponUpdate );
@@ -446,8 +436,6 @@ void ModuleFactory::init()
 	addModule( FirestormDynamicGeometryInfoUpdate );
 	addModule( LaserUpdate );
 	addModule( PointDefenseLaserUpdate );
-	addModule( PointDefenseUpdateV2 );
-	addModule( ProjectileClipFeedbackUpdateV2 );
 	addModule( CleanupHazardUpdate );
 	addModule( CommandButtonHuntUpdate );
 	addModule( PilotFindVehicleUpdate );
@@ -473,7 +461,6 @@ void ModuleFactory::init()
 	addModule( SpecialAbilityUpdate );
 	addModule( SwitchStateV2 );
 	addModule( ShieldGeneratorUpdateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
-	addModule( DamageOverTimeUpdateV2 );///< GeneralsMod @feature Dimitar 15/09/2026
 	addModule( MissileLauncherBuildingUpdate );
 	addModule( SupplyCenterProductionExitUpdate );
 	addModule( SupplyCenterDockUpdate );
@@ -536,7 +523,6 @@ void ModuleFactory::init()
 	// damage modules
 	addModule( BoneFXDamage );
 	addModule( TransitionDamageFX );
-	addModule( ContainedTransitionDamageFXV2 );
 	addModule( SwitchStateWhenDamagedBehaviorV2 );///< GeneralsMod @feature Dimitar 11/09/2026
 
 	// collide modules

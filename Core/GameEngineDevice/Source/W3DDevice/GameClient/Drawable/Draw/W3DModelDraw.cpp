@@ -1743,6 +1743,11 @@ W3DModelDraw::W3DModelDraw(Thing *thing, const ModuleData* moduleData) : DrawMod
 	m_shadow = nullptr;
 	m_shadowEnabled = TRUE;
 	m_terrainDecal = nullptr;
+	m_terrainDecalType = TERRAIN_DECAL_NONE;
+	m_persistentDecalTexture = AsciiString::TheEmptyString;
+	m_persistentDecalSizeX = 0.0f;
+	m_persistentDecalSizeY = 0.0f;
+	m_persistentDecalStyle = SHADOW_ALPHA_DECAL;
 	m_trackRenderObject = nullptr;
 	m_whichAnimInCurState = -1;
 	m_nextState = nullptr;
@@ -2738,6 +2743,11 @@ void W3DModelDraw::setTerrainDecal(TerrainDecalType type)
 
 	m_terrainDecal = nullptr;
 
+	// GeneralsMod @fix Dimitar 14/09/2026: cache so a later ConditionState-driven model rebuild can
+	// reapply this decal -- see m_terrainDecalType's declaration in the header for why.
+	m_terrainDecalType = type;
+	m_persistentDecalTexture = AsciiString::TheEmptyString;
+
 	if (type == TERRAIN_DECAL_NONE || type >= TERRAIN_DECAL_MAX)
 		//turning off decals on this object. (or bad value.)
 		return;
@@ -2780,6 +2790,14 @@ void W3DModelDraw::setPersistentDecal(const AsciiString& textureName, Real sizeX
 		m_terrainDecal->release();
 
 	m_terrainDecal = nullptr;
+
+	// GeneralsMod @fix Dimitar 14/09/2026: cache so a later ConditionState-driven model rebuild can
+	// reapply this decal -- see m_terrainDecalType's declaration in the header for why.
+	m_terrainDecalType = TERRAIN_DECAL_NONE;
+	m_persistentDecalTexture = textureName;
+	m_persistentDecalSizeX = sizeX;
+	m_persistentDecalSizeY = sizeY;
+	m_persistentDecalStyle = style;
 
 	if (textureName.isEmpty())
 		//turning off the decal on this object.
@@ -3120,6 +3138,19 @@ void W3DModelDraw::setModelState(const ModelConditionInfo* newState)
 			{	m_shadow->enableShadowInvisible(m_fullyObscuredByShroud);
 				m_shadow->enableShadowRender(m_shadowEnabled);
 			}
+		}
+
+		// GeneralsMod @fix Dimitar 14/09/2026: reapply a terrain/persistent decal that nukeCurrentRender()
+		// (called above, tearing down the old m_renderObject) released, but which was never recreated by
+		// this rebuild -- unlike m_shadow just above. Without this, any active decal (e.g. a
+		// PersistentDecalUpdateV2 aura, or the vanilla chem-suit/crate/horde decal) is permanently lost
+		// the moment this Draw's ConditionState-driven Model changes (e.g. entering REALLYDAMAGED).
+		if (m_renderObject)
+		{
+			if (m_terrainDecalType != TERRAIN_DECAL_NONE)
+				setTerrainDecal(m_terrainDecalType);
+			else if (m_persistentDecalTexture.isNotEmpty())
+				setPersistentDecal(m_persistentDecalTexture, m_persistentDecalSizeX, m_persistentDecalSizeY, m_persistentDecalStyle);
 		}
 
 		if( m_renderObject )

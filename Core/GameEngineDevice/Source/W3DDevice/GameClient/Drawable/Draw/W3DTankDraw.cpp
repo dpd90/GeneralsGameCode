@@ -243,7 +243,7 @@ void W3DTankDraw::updateTreadObjects()
 	//Make sure this object has defined a speed for tread scrolling.
 	if (getW3DTankDrawModuleData() && getW3DTankDrawModuleData()->m_treadAnimationRate && robj)
 	{
-		for (Int i=0; i < robj->Get_Num_Sub_Objects() && m_treadCount < MAX_TREADS_PER_TANK; i++)
+		for (Int i=0; i < robj->Get_Num_Sub_Objects(); i++)
 		{
 			RenderObjClass *subObj=robj->Get_Sub_Object(i);
 			const char *meshName;
@@ -254,12 +254,30 @@ void W3DTankDraw::updateTreadObjects()
 			{	//check if sub-object has the correct material to do texture scrolling.
 				MaterialInfoClass *mat=subObj->Get_Material_Info();
 				if (mat)
-				{	for (Int j=0; j<mat->Vertex_Material_Count(); j++)
+				{	// GeneralsMod @fix Dimitar 19/09/2026: this inner loop had no MAX_TREADS_PER_TANK guard --
+					// a single TREADS* submesh with more than one UV-scroll-mapped vertex material could
+					// increment m_treadCount past the end of the fixed m_treads[MAX_TREADS_PER_TANK] array,
+					// writing out of bounds into whatever memory follows it (adjacent members, or -- once a
+					// pool block gets reused -- a completely unrelated later-allocated object). The outer
+					// loop above already guards m_treadCount, but only checks it between sub-objects, not
+					// between vertex materials within the same sub-object.
+					// GeneralsMod @fix Dimitar 23/09/2026: a TREADS* submesh with multiple passes has one
+					// LinearOffset vertex material per pass. Previously each one registered the SAME submesh as
+					// a separate tread, so 2 multi-pass treads filled all MAX_TREADS_PER_TANK slots early and later
+					// TREADS* submeshes were never visited -> their mappers kept the W3D-authored UV delta and
+					// scrolled constantly. Now: zero the delta on EVERY LinearOffset mapper of every TREADS* submesh,
+					// but register each submesh only once (the Material_Override is per mesh and the renderer
+					// applies it to each pass anyway).
+					Bool registered = FALSE;
+					for (Int j=0; j<mat->Vertex_Material_Count(); j++)
 					{
 						VertexMaterialClass *vmaterial=mat->Peek_Vertex_Material(j);
 						LinearOffsetTextureMapperClass *mapper=(LinearOffsetTextureMapperClass *)vmaterial->Peek_Mapper();
 						if (mapper && mapper->Mapper_ID() == TextureMapperClass::MAPPER_ID_LINEAR_OFFSET)
 						{	mapper->Set_UV_Offset_Delta(Vector2(0,0));	//disable automatic scrolling
+							if (registered || m_treadCount >= MAX_TREADS_PER_TANK)
+								continue;	//already tracked, or no slots left (still stops auto-scroll)
+							registered = TRUE;
 							subObj->Add_Ref();	//increase reference since we're storing the pointer
 							m_treads[m_treadCount].m_robj=subObj;
 							m_treads[m_treadCount].m_type = TREAD_MIDDLE;	//default type

@@ -1,0 +1,383 @@
+<title>Zero Hour Module Codex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEF0EC; --panel:#F8F9F6; --raise:#FFFFFF; --ink:#1B2220; --ink2:#44504B; --muted:#6C7873;
+  --line:#D5DAD4; --line2:#E4E8E2; --accent:#B8741A; --accent-ink:#8A540C; --accent-soft:#F4E7D2;
+  --mod:#1E7666; --mod-soft:#DCEFEA; --patch:#6A5AA8; --patch-soft:#E8E4F5;
+  --code-bg:#1E2624; --code-ink:#DDE5E1; --code-key:#E8B35C; --code-com:#7F918A; --code-kw:#7FC7B6;
+  --onlyA:#F6E2DA; --onlyB:#DDEBE4; --diff:#F3EBD2;
+  --display:"Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121715; --panel:#171D1B; --raise:#1C2321; --ink:#E3E9E6; --ink2:#B9C4BF; --muted:#8B9893;
+    --line:#2C3633; --line2:#232C29; --accent:#E0A04A; --accent-ink:#EDB86C; --accent-soft:#3A2D19;
+    --mod:#5CC4AE; --mod-soft:#173731; --patch:#A999E6; --patch-soft:#2A2640;
+    --code-bg:#0D1110; --onlyA:#3A2621; --onlyB:#1B3129; --diff:#342E1C;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121715; --panel:#171D1B; --raise:#1C2321; --ink:#E3E9E6; --ink2:#B9C4BF; --muted:#8B9893;
+  --line:#2C3633; --line2:#232C29; --accent:#E0A04A; --accent-ink:#EDB86C; --accent-soft:#3A2D19;
+  --mod:#5CC4AE; --mod-soft:#173731; --patch:#A999E6; --patch-soft:#2A2640;
+  --code-bg:#0D1110; --onlyA:#3A2621; --onlyB:#1B3129; --diff:#342E1C;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+a{color:var(--accent-ink)}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;gap:16px;align-items:center;padding:10px 16px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.02em;white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:8px}
+.brand small{font-family:var(--mono);font-weight:400;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.mark{width:22px;height:22px;border:2px solid var(--accent);transform:rotate(45deg);display:inline-grid;place-items:center}
+.mark::after{content:"";width:8px;height:8px;background:var(--accent)}
+.search{position:relative;flex:1 1 320px;max-width:620px}
+.search input{width:100%;padding:9px 12px 9px 36px;border:1px solid var(--line);border-radius:6px;background:var(--raise);font-size:15px}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted)}
+.kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.results{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--raise);border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 12px 32px rgba(0,0,0,.14);max-height:min(460px,70vh);overflow:auto;padding:4px}
+.res{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 10px;border-radius:6px;cursor:pointer}
+.res[aria-selected="true"],.res:hover{background:var(--accent-soft)}
+.res b{font-family:var(--mono);font-weight:500;font-size:14px}
+.res .rc{grid-column:2;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res .rk{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;align-self:center;text-align:right}
+.res .hit{grid-column:1/-1;font-size:12px;color:var(--ink2);font-family:var(--mono)}
+.noresult{padding:12px;color:var(--muted)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--raise);border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* layout */
+.wrap{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:calc(100vh - 60px)}
+aside{border-right:1px solid var(--line);background:var(--panel);padding:14px 10px 40px;position:sticky;top:60px;align-self:start;max-height:calc(100vh - 60px);overflow:auto}
+aside h4{font-family:var(--display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 8px 4px;display:flex;justify-content:space-between}
+aside h4:first-child{margin-top:0}
+aside a{display:flex;justify-content:space-between;gap:6px;padding:3px 8px;border-radius:5px;text-decoration:none;color:var(--ink2);font-family:var(--mono);font-size:12.5px;overflow:hidden}
+aside a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+aside a:hover{background:var(--line2);color:var(--ink)}
+aside a.on{background:var(--accent-soft);color:var(--ink)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;align-self:center}
+.dot.mod{background:var(--mod)} .dot.patched{background:var(--patch)}
+main{padding-block:28px 80px;padding-inline:clamp(16px,4vw,48px);min-width:0}
+@media (max-width:860px){ .wrap{grid-template-columns:1fr} aside{display:none} }
+
+/* module view */
+.eyebrow{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.04em;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.eyebrow code{color:var(--accent-ink)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,4vw,38px);line-height:1.1;margin:6px 0 10px;letter-spacing:.01em;word-break:break-word;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:20px;margin:36px 0 10px;letter-spacing:.02em;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+h2 small{font-family:var(--body);font-weight:400;font-size:13px;color:var(--muted)}
+h3{font-family:var(--mono);font-weight:500;font-size:14px;margin:22px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h3 .role{font-family:var(--body);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.badge{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:4px;border:1px solid transparent}
+.badge.mod{background:var(--mod-soft);color:var(--mod);border-color:color-mix(in srgb,var(--mod) 35%,transparent)}
+.badge.vanilla{background:var(--line2);color:var(--ink2)}
+.badge.patched{background:var(--patch-soft);color:var(--patch)}
+.badge.cat{background:transparent;border-color:var(--line);color:var(--ink2)}
+.lead{font-size:17px;color:var(--ink);max-width:70ch;margin:0 0 14px}
+.prose{max-width:72ch;color:var(--ink2)}
+.prose b{color:var(--ink);font-weight:600}
+.prose code,td code,.lead code{font-family:var(--mono);font-size:.9em;background:var(--line2);padding:0 4px;border-radius:3px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 4px}
+.btn{border:1px solid var(--line);background:var(--raise);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1b1206;font-weight:600}
+.btn.primary:hover{filter:brightness(1.05)}
+select.btn{padding-right:28px;max-width:100%}
+.meta{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;font-size:13px;margin-top:10px}
+.meta dt{color:var(--muted)} .meta dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
+
+.code{position:relative;background:var(--code-bg);color:var(--code-ink);border-radius:8px;overflow:auto;max-width:100%}
+.code pre{margin:0;padding:16px 18px;font-family:var(--mono);font-size:13px;line-height:1.6;white-space:pre}
+.code .k{color:var(--code-key)} .code .c{color:var(--code-com);font-style:italic} .code .w{color:var(--code-kw)}
+.copy{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.08);color:var(--code-ink);border:1px solid rgba(255,255,255,.15);border-radius:5px;font-size:12px;padding:3px 9px;cursor:pointer}
+.copy:hover{background:rgba(255,255,255,.16)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--raise)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{text-align:left;font-family:var(--body);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:9px 12px;border-bottom:1px solid var(--line);background:var(--panel);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.f{font-family:var(--mono);font-weight:500;white-space:nowrap}
+td.t{color:var(--ink2);font-size:12.5px;min-width:120px}
+td.dv{font-family:var(--mono);font-size:12.5px;color:var(--ink2);white-space:nowrap}
+td.x{min-width:260px}
+td.st{min-width:90px}
+.eg{display:block;margin-top:4px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.eg::before{content:"e.g.  "}
+.srcn{display:block;margin-top:3px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.inf{font-size:11px;color:var(--muted);font-style:italic}
+tr.hl td{background:var(--accent-soft)}
+.fold{border:1px solid var(--line);border-radius:8px;background:var(--raise);margin-top:10px}
+.fold summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px;list-style:none;display:flex;gap:8px;align-items:center}
+.fold summary::before{content:"▸";color:var(--muted);transition:transform .15s}
+.fold[open] summary::before{transform:rotate(90deg)}
+.fold .inner{padding:0 14px 12px}
+.fold .tablewrap{border:0;border-top:1px solid var(--line2);border-radius:0}
+.note{font-size:13.5px;color:var(--ink2);padding:10px 0;border-top:1px dashed var(--line);max-width:90ch;white-space:pre-wrap}
+.note:first-child{border-top:0}
+
+/* overview */
+.hero{display:flex;flex-wrap:wrap;gap:24px;align-items:end;justify-content:space-between;margin-bottom:10px}
+.stats{display:flex;gap:22px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.stat b{display:block;font-family:var(--display);font-size:26px;line-height:1}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.card{display:block;text-decoration:none;color:inherit;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:11px 13px}
+.card:hover{border-color:var(--accent)}
+.card b{font-family:var(--mono);font-weight:500;font-size:13.5px;display:flex;gap:6px;align-items:center}
+.card p{margin:4px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}
+.pairs{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.pair{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px}
+.pair a{text-decoration:none}
+.pair .vs{color:var(--muted);font-family:var(--body);font-size:12px}
+.pair button{margin-left:auto}
+
+/* compare */
+.cmphead{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cmpcol{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.cmpcol h1{font-size:clamp(20px,2.6vw,28px)}
+.cmpcol .lead{font-size:15px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin:8px 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px;border:1px solid var(--line)}
+tr.onlyA td{background:var(--onlyA)} tr.onlyB td{background:var(--onlyB)} tr.diff td{background:var(--diff)}
+td.st{font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;color:var(--ink2)}
+.cmpbody{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cmpbody .prose{font-size:14px}
+@media (max-width:760px){ .cmphead,.cmpbody{grid-template-columns:1fr} }
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:7px 14px;border-radius:6px;font-size:13px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="bar">
+  <div class="brand" id="home" role="link" tabindex="0"><span class="mark" aria-hidden="true"></span>Zero Hour Module Codex <small>GeneralsGameCode</small></div>
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Search modules or fields (e.g. SlowDeath, ShieldAmount, V2)…" autocomplete="off" aria-label="Search modules" aria-controls="results" aria-expanded="false">
+    <span class="kbd" aria-hidden="true">/</span>
+    <div class="results" id="results" role="listbox" hidden></div>
+  </div>
+  <div class="filters" role="group" aria-label="Filter modules">
+    <button class="chip" data-f="all" aria-pressed="true">All</button>
+    <button class="chip" data-f="mod" aria-pressed="false">Mod (V2)</button>
+    <button class="chip" data-f="vanilla" aria-pressed="false">Vanilla</button>
+  </div>
+</header>
+<div class="wrap">
+  <aside id="side" aria-label="Module list"></aside>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/*__DATA__*/
+const MODS=DATA.mods, G=DATA.groups, BY={};
+MODS.forEach(m=>BY[m.name]=m);
+const CATS=["Update / behavior","AI update","Die / death","Contain","Damage","Upgrade","Create","Collide / crate","Special power","Body","Client update","Draw"];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let filter="all";
+try{ filter=localStorage.getItem("zhmc-filter")||"all"; }catch(e){}
+
+function fieldsOf(m){ return m.groups.flatMap(([gid,role])=>G[gid].fields.map(f=>({...f,src:G[gid].src,role,nested:G[gid].nested}))); }
+function vis(m){ return filter==="all" || (filter==="mod"? m.origin==="mod" : m.origin!=="mod"); }
+function badge(m){ return m.origin==="mod"?'<span class="badge mod">Mod-original</span>':m.origin==="patched"?'<span class="badge patched">Vanilla · patched by mod</span>':'<span class="badge vanilla">Vanilla</span>'; }
+
+/* sidebar */
+function renderSide(cur){
+  let h="";
+  CATS.forEach(c=>{
+    const list=MODS.filter(m=>m.cat===c&&vis(m)); if(!list.length) return;
+    h+=`<h4><span>${c}</span><span>${list.length}</span></h4>`;
+    list.forEach(m=>h+=`<a href="#${m.name}" class="${m.name===cur?"on":""}"><span>${m.name}</span>${m.origin!=="vanilla"?`<i class="dot ${m.origin}" title="${m.origin==="mod"?"Mod-original":"Patched by mod"}"></i>`:""}</a>`);
+  });
+  $("#side").innerHTML=h;
+  const on=$("#side a.on"); if(on) on.scrollIntoView({block:"nearest"});
+}
+
+/* INI highlighter */
+function ini(src){
+  return esc(src).split("\n").map(l=>{
+    let c=""; const i=l.indexOf(";"); if(i>=0){c=`<span class="c">${l.slice(i)}</span>`; l=l.slice(0,i);}
+    l=l.replace(/^(\s*)(Behavior|Body|Draw|ClientUpdate|Object|Weapon|InheritableModule|End)\b/,'$1<span class="w">$2</span>')
+       .replace(/^(\s*)([A-Za-z][\w%]*)(\s*=)/,'$1<span class="k">$2</span>$3');
+    return l+c;
+  }).join("\n");
+}
+function codeBlock(src){ return `<div class="code"><button class="copy" data-copy>Copy</button><pre>${ini(src)}</pre></div>`; }
+
+function roleLabel(role,g){
+  if(role==="own") return "this module's own fields";
+  if(role==="mixin") return g.src==="UpgradeMuxData"?"upgrade trigger fields (mixed in)":"death filter fields (mixed in)";
+  if(role==="nested") return "sub-block: "+esc(g.nested);
+  return "inherited";
+}
+function fieldTable(fields,hl){
+  let h='<div class="tablewrap"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>What it does</th></tr></thead><tbody>';
+  fields.forEach(f=>{
+    h+=`<tr id="f-${esc(f.n)}" class="${hl&&f.n.toLowerCase()===hl?"hl":""}"><td class="f">${esc(f.n)}</td><td class="t">${esc(f.t)}</td><td class="dv">${esc(f.d)}</td><td class="x">${esc(f.x)}${f.i?' <span class="inf">(same-named field elsewhere)</span>':""}${f.e&&f.e!=="(sub-block)"?`<span class="eg">${esc(f.n)} = ${esc(f.e)}</span>`:""}</td></tr>`;
+  });
+  return h+"</tbody></table></div>";
+}
+
+function compareControls(m){
+  const others=MODS.filter(o=>o.name!==m.name&&!m.cp.includes(o.name));
+  let h='<div class="actions">';
+  m.cp.forEach(c=>h+=`<button class="btn ${BY[c].origin==="mod"||m.origin==="mod"?"primary":""}" data-cmp="${m.name}|${c}">Compare with ${esc(c)}</button>`);
+  h+=`<select class="btn" id="cmpany" aria-label="Compare with another module"><option value="">${m.cp.length?"Compare with another module…":"Compare with…"}</option>`+
+     others.map(o=>`<option value="${o.name}">${o.name}${o.origin==="mod"?"  (V2 / mod)":""}</option>`).join("")+"</select>";
+  return h+"</div>";
+}
+
+function renderModule(name,hl){
+  const m=BY[name]; if(!m) return renderHome();
+  document.title=m.name+" · Zero Hour Module Codex";
+  let h=`<div class="eyebrow"><code>${m.key} = ${m.name} ModuleTag_XX</code><span class="badge cat">${m.cat}</span>${badge(m)}</div>
+  <h1>${m.name}</h1><p class="lead">${esc(m.sum)}</p>${compareControls(m)}
+  <h2>How it works</h2><div class="prose">${m.body}</div>
+  <h2>Example <small>INI, inside an Object definition</small></h2>${codeBlock(m.ex)}`;
+  const own=m.groups.filter(g=>g[1]!=="nested");
+  const total=fieldsOf(m).length;
+  h+=`<h2>Fields <small>${total?total+" fields, parsed from the module's FieldParse tables":"this module has no INI fields of its own"}</small></h2>`;
+  if(!total) h+=`<p class="prose">Only the module line and <code>End</code> are needed. Everything it does is fixed in code or driven by other modules/global data.</p>`;
+  m.groups.forEach(([gid,role],i)=>{
+    const g=G[gid]; if(!g.fields.length) return;
+    const title=`<span>${esc(g.src)}</span><span class="role">${roleLabel(role,g)} · ${g.fields.length}</span>`;
+    if(role==="own"||(i===0)) h+=`<h3>${title}</h3>`+fieldTable(g.fields,hl);
+    else h+=`<details class="fold" ${hl&&g.fields.some(f=>f.n.toLowerCase()===hl)?"open":""}><summary>${title}</summary>${fieldTable(g.fields,hl)}</details>`;
+  });
+  if(m.notes.length){
+    h+=`<h2>Developer notes <small>comments from the mod's source</small></h2><details class="fold"><summary>${m.notes.length} note${m.notes.length>1?"s":""} from ${esc(m.header.split("/").pop())}</summary><div class="inner">${m.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("")}</div></details>`;
+  }
+  h+=`<h2>Source</h2><dl class="meta"><dt>Header</dt><dd>${esc(m.header)}</dd><dt>Source</dt><dd>${esc(m.cpp||"—")}</dd><dt>Base classes</dt><dd>${esc(m.bases.join(", "))}</dd><dt>Module data</dt><dd>${esc(m.data)}</dd></dl>`;
+  $("#main").innerHTML=h; renderSide(name);
+  if(hl){ const r=document.getElementById("f-"+[...fieldsOf(m)].find(f=>f.n.toLowerCase()===hl)?.n); if(r) r.scrollIntoView({block:"center"}); else scrollTo(0,0);} else scrollTo(0,0);
+}
+
+function renderCompare(a,b){
+  const A=BY[a],B=BY[b]; if(!A||!B) return renderHome();
+  document.title=a+" vs "+b+" · Zero Hour Module Codex";
+  const fa=fieldsOf(A),fb=fieldsOf(B),ma={},mb={};
+  fa.forEach(f=>ma[f.n]=ma[f.n]||f); fb.forEach(f=>mb[f.n]=mb[f.n]||f);
+  const rank=n=>!mb[n]?0:!ma[n]?1:(ma[n].d!==mb[n].d||ma[n].t!==mb[n].t)?2:3;
+  const names=[...new Set([...fa.map(f=>f.n),...fb.map(f=>f.n)])].map((n,i)=>[n,i]).sort((x,y)=>rank(x[0])-rank(y[0])||x[1]-y[1]).map(x=>x[0]);
+  let cBoth=0,cA=0,cB=0,cDiff=0;
+  const rows=names.map(n=>{
+    const x=ma[n],y=mb[n]; let cls="",st="";
+    if(x&&y){ cBoth++; if(x.d!==y.d||x.t!==y.t){cls="diff";st="default differs";cDiff++;} else st="both"; }
+    else if(x){cls="onlyA";st="only "+a;cA++;} else {cls="onlyB";st="only "+b;cB++;}
+    const cell=f=>f?`<code>${esc(f.t)}</code>${f.d?` · default <code>${esc(f.d)}</code>`:""}<span class="srcn">${esc(f.src)}</span>`:'<span class="inf">not available</span>';
+    const desc=(x&&y&&x.x!==y.x)?`<b>${esc(a)}:</b> ${esc(x.x)}<br><b>${esc(b)}:</b> ${esc(y.x)}`:esc((x||y).x);
+    return `<tr class="${cls}"><td class="f">${esc(n)}</td><td class="t">${cell(x)}</td><td class="t">${cell(y)}</td><td class="x">${desc}</td><td class="st">${st}</td></tr>`;
+  }).join("");
+  const col=m=>`<div class="cmpcol"><div class="eyebrow"><span class="badge cat">${m.cat}</span>${badge(m)}</div><h1><a href="#${m.name}" style="color:inherit;text-decoration:none">${m.name}</a></h1><p class="lead">${esc(m.sum)}</p></div>`;
+  let h=`<div class="eyebrow"><code>Compare</code><button class="btn" data-swap="${b}|${a}">Swap sides</button></div><h1 style="font-size:22px">${a} <span style="color:var(--muted)">vs</span> ${b}</h1>
+  <div class="cmphead">${col(A)}${col(B)}</div>
+  <h2>Field by field <small>${cBoth} shared (${cDiff} with a different type or default) · ${cA} only in ${a} · ${cB} only in ${b}</small></h2>
+  <div class="legend"><span><i style="background:var(--onlyA)"></i>only in ${a}</span><span><i style="background:var(--onlyB)"></i>only in ${b}</span><span><i style="background:var(--diff)"></i>shared, default or type differs</span></div>
+  <div class="tablewrap"><table><thead><tr><th>Field</th><th>${esc(a)}</th><th>${esc(b)}</th><th>What it does</th><th>Status</th></tr></thead><tbody>${rows||'<tr><td colspan="5">Neither module has INI fields.</td></tr>'}</tbody></table></div>
+  <h2>How each one works</h2><div class="cmpbody"><div class="prose"><h3>${a}</h3>${A.body}</div><div class="prose"><h3>${b}</h3>${B.body}</div></div>
+  <h2>Examples</h2><div class="cmpbody"><div>${codeBlock(A.ex)}</div><div>${codeBlock(B.ex)}</div></div>`;
+  $("#main").innerHTML=h; renderSide(a); scrollTo(0,0);
+}
+
+function renderHome(){
+  document.title="Zero Hour Module Codex";
+  const list=MODS.filter(vis), nf=Object.values(G).reduce((s,g)=>s+g.fields.length,0);
+  const pairs=MODS.filter(m=>m.origin==="mod"&&m.cp.length);
+  let h=`<div class="hero"><div><div class="eyebrow"><code>GeneralsMD · ModuleFactory + W3DModuleFactory</code></div><h1>Every module the game can load</h1>
+  <p class="lead">All ${MODS.length} modules registered in the engine, with how they work, every INI field and an example block. Search above to open one, or pick from the list. Mod-original modules (the V2 family) can be compared field by field with the vanilla module they build on.</p></div>
+  <div class="stats"><div class="stat"><b>${MODS.length}</b><span>modules</span></div><div class="stat"><b>${MODS.filter(m=>m.origin==="mod").length}</b><span>mod-original</span></div><div class="stat"><b>${nf}</b><span>unique fields</span></div></div></div>
+  <h2>Mod modules and their vanilla counterparts</h2><div class="pairs">${pairs.map(m=>`<div class="pair"><a href="#${m.name}">${m.name}</a><span class="vs">builds on</span><a href="#${m.cp[0]}">${m.cp[0]}</a><button class="btn" data-cmp="${m.name}|${m.cp[0]}">Compare</button></div>`).join("")}</div>`;
+  CATS.forEach(c=>{
+    const l=list.filter(m=>m.cat===c); if(!l.length) return;
+    h+=`<h2>${c} <small>${l.length}</small></h2><div class="grid">${l.map(m=>`<a class="card" href="#${m.name}"><b>${m.name}${m.origin!=="vanilla"?`<i class="dot ${m.origin}"></i>`:""}</b><p>${esc(m.sum)}</p></a>`).join("")}</div>`;
+  });
+  $("#main").innerHTML=h; renderSide(null); scrollTo(0,0);
+}
+
+/* routing */
+let cmpState=null;
+function route(){
+  const hsh=decodeURIComponent(location.hash.slice(1));
+  if(cmpState&&hsh===cmpState.join("-vs-")) return renderCompare(...cmpState);
+  const cm=hsh.match(/^(\w+)-vs-(\w+)$/);
+  if(cm&&BY[cm[1]]&&BY[cm[2]]) return renderCompare(cm[1],cm[2]);
+  if(BY[hsh]) return renderModule(hsh,pendingHl);
+  renderHome();
+}
+let pendingHl=null;
+window.addEventListener("hashchange",()=>{route();pendingHl=null;});
+function go(name,hl){ pendingHl=hl||null; if(location.hash==="#"+name) route(); else location.hash=name; }
+function compare(a,b){ cmpState=[a,b]; const h=a+"-vs-"+b; if(location.hash==="#"+h) route(); else location.hash=h; }
+
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-cmp],[data-swap]");
+  if(c){ const [a,b]=(c.dataset.cmp||c.dataset.swap).split("|"); compare(a,b); return; }
+  const cp=e.target.closest("[data-copy]");
+  if(cp){ const txt=cp.nextElementSibling.textContent;
+    const ok=()=>toast("Copied to clipboard");
+    try{ navigator.clipboard.writeText(txt).then(ok,()=>selectPre(cp.nextElementSibling)); }catch(err){ selectPre(cp.nextElementSibling); } }
+});
+document.addEventListener("change",e=>{ if(e.target.id==="cmpany"&&e.target.value){ const cur=decodeURIComponent(location.hash.slice(1)); compare(cur,e.target.value);} });
+function selectPre(el){ const r=document.createRange(); r.selectNodeContents(el); const s=getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selected — press Ctrl+C to copy"); }
+function toast(t){ const el=$("#toast"); el.textContent=t; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true,1600); }
+$("#home").addEventListener("click",()=>{ cmpState=null; history.pushState("", "", location.pathname); renderHome(); });
+$("#home").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#home").click(); });
+
+document.querySelectorAll(".chip").forEach(b=>{
+  b.setAttribute("aria-pressed",b.dataset.f===filter);
+  b.onclick=()=>{ filter=b.dataset.f; try{localStorage.setItem("zhmc-filter",filter);}catch(e){}
+    document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===b)); route(); };
+});
+
+/* search */
+const q=$("#q"), R=$("#results"); let hits=[], sel=0;
+function search(s){
+  s=s.trim().toLowerCase(); if(!s) return [];
+  const out=[];
+  MODS.forEach(m=>{
+    if(!vis(m)) return;
+    const n=m.name.toLowerCase(); let score=0, field=null;
+    if(n===s) score=100; else if(n.startsWith(s)) score=80; else if(n.includes(s)) score=60;
+    else if(s.split(/\s+/).every(w=>n.includes(w))) score=50;
+    if(!score){ const f=fieldsOf(m).find(f=>f.n.toLowerCase()===s)||fieldsOf(m).find(f=>f.n.toLowerCase().startsWith(s)&&s.length>2);
+      if(f){score=40; field=f.n;} }
+    if(!score&&s.length>2&&(m.sum.toLowerCase().includes(s)||m.cat.toLowerCase().includes(s))) score=20;
+    if(score) out.push({m,score,field});
+  });
+  return out.sort((a,b)=>b.score-a.score||a.m.name.localeCompare(b.m.name)).slice(0,40);
+}
+function showResults(){
+  hits=search(q.value); sel=0;
+  if(!q.value.trim()){ R.hidden=true; q.setAttribute("aria-expanded","false"); return; }
+  R.innerHTML=hits.length?hits.map((h,i)=>`<div class="res" role="option" data-i="${i}" aria-selected="${i===sel}"><b>${h.m.name}${h.m.origin==="mod"?' <i class="dot mod" style="display:inline-block"></i>':""}</b><span class="rk">${h.m.cat}</span><span class="rc">${esc(h.m.sum)}</span>${h.field?`<span class="hit">field: ${esc(h.field)}</span>`:""}</div>`).join(""):`<div class="noresult">No module or field matches “${esc(q.value)}”.</div>`;
+  R.hidden=false; q.setAttribute("aria-expanded","true");
+}
+function pick(i){ const h=hits[i]; if(!h) return; R.hidden=true; q.value=""; q.blur(); cmpState=null; go(h.m.name,h.field?h.field.toLowerCase():null); }
+q.addEventListener("input",showResults);
+q.addEventListener("focus",()=>{ if(q.value) showResults(); });
+q.addEventListener("keydown",e=>{
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); if(!hits.length) return; sel=(sel+(e.key==="ArrowDown"?1:hits.length-1))%hits.length;
+    R.querySelectorAll(".res").forEach((r,i)=>r.setAttribute("aria-selected",i===sel)); R.querySelector(`[data-i="${sel}"]`).scrollIntoView({block:"nearest"}); }
+  else if(e.key==="Enter"){ e.preventDefault(); pick(sel); }
+  else if(e.key==="Escape"){ R.hidden=true; q.blur(); }
+});
+R.addEventListener("mousedown",e=>{ const r=e.target.closest(".res"); if(r){ e.preventDefault(); pick(+r.dataset.i); }});
+document.addEventListener("click",e=>{ if(!e.target.closest(".search")) R.hidden=true; });
+document.addEventListener("keydown",e=>{ if(e.key==="/"&&document.activeElement!==q&&!/input|select|textarea/i.test(document.activeElement.tagName)){ e.preventDefault(); q.focus(); } });
+route();
+</script>

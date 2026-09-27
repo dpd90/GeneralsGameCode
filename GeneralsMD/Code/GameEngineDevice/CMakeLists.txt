@@ -10,12 +10,15 @@ set(GAMEENGINEDEVICE_SRC
 #    Include/W3DDevice/GameClient/camerashakesystem.h
 #    Include/W3DDevice/GameClient/FlatHeightMap.h
 #    Include/W3DDevice/GameClient/HeightMap.h
+    Include/W3DDevice/GameClient/Module/W3DBreakApartPieceDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DDebrisDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DDefaultDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DDependencyModelDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DLaserDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DModelDraw.h
     Include/W3DDevice/GameClient/Module/W3DPersistentAnimModelDraw.h
+    Include/W3DDevice/GameClient/Module/W3DWheeledTankDraw.h
+    Include/W3DDevice/GameClient/Module/W3DOverlordWheeledTankDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DOverlordAircraftDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DOverlordTankDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DOverlordTruckDraw.h
@@ -98,12 +101,15 @@ set(GAMEENGINEDEVICE_SRC
 #    Source/W3DDevice/Common/W3DConvert.cpp
 #    Source/W3DDevice/GameClient/BaseHeightMap.cpp
 #    Source/W3DDevice/GameClient/camerashakesystem.cpp
+    Source/W3DDevice/GameClient/Drawable/Draw/W3DBreakApartPieceDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DDefaultDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DDependencyModelDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.cpp
     Source/W3DDevice/GameClient/Drawable/Draw/W3DPersistentAnimModelDraw.cpp
+    Source/W3DDevice/GameClient/Drawable/Draw/W3DWheeledTankDraw.cpp
+    Source/W3DDevice/GameClient/Drawable/Draw/W3DOverlordWheeledTankDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DOverlordAircraftDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DOverlordTankDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DOverlordTruckDraw.cpp
@@ -146,6 +152,7 @@ set(GAMEENGINEDEVICE_SRC
     Source/W3DDevice/GameClient/W3DAssetManager.cpp
     Source/W3DDevice/GameClient/W3DAssetManagerExposed.cpp
     Source/W3DDevice/GameClient/W3DBibBuffer.cpp
+    Source/W3DDevice/GameClient/W3DBreakApartModelHelper.cpp
     Source/W3DDevice/GameClient/W3DBridgeBuffer.cpp
     Source/W3DDevice/GameClient/W3DDebugDisplay.cpp
     Source/W3DDevice/GameClient/W3DDebugIcons.cpp

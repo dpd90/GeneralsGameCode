@@ -172,6 +172,32 @@ const char* const ModelConditionFlags::s_bitNameList[] =
 
 	"DISGUISED",
 
+	// GeneralsMod @feature Dimitar 26/09/2026: RIDER9-32 for RiderChangeContainV2
+	"RIDER9",
+	"RIDER10",
+	"RIDER11",
+	"RIDER12",
+	"RIDER13",
+	"RIDER14",
+	"RIDER15",
+	"RIDER16",
+	"RIDER17",
+	"RIDER18",
+	"RIDER19",
+	"RIDER20",
+	"RIDER21",
+	"RIDER22",
+	"RIDER23",
+	"RIDER24",
+	"RIDER25",
+	"RIDER26",
+	"RIDER27",
+	"RIDER28",
+	"RIDER29",
+	"RIDER30",
+	"RIDER31",
+	"RIDER32",
+
 	nullptr
 };
 static_assert(ARRAY_SIZE(ModelConditionFlags::s_bitNameList) == ModelConditionFlags::NumBits + 1, "Incorrect array size");

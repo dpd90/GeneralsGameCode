@@ -34,6 +34,7 @@
 #include "Common/Module.h"
 #include "Common/ModelState.h"
 #include "GameClient/Color.h"
+#include <vector>	///< GeneralsMod @feature Dimitar 19/09/2026: needed for DrawModule::setBreakApartRemainder()'s hiddenBoneNames parameter below
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class Matrix3D;
@@ -94,6 +95,35 @@ public:
 	// this signature byte-for-byte in sync with GeneralsMD's own copy of DrawModule.h whenever that
 	// one changes, or the Generals/ build breaks with "did not override any base class methods".
 	virtual void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style) {};
+
+	// GeneralsMod @feature Dimitar 19/09/2026: sibling hand-off for BreakApartDeathBehaviorV2 --
+	// lets that (GameEngine-side) DieModule tell a freshly-spawned debris Object's own Draw module
+	// which single subobject of a reference model to display, without BreakApartDeathBehaviorV2.cpp
+	// ever including anything from GameEngineDevice -- same Logic/Client boundary setTerrainDecal/
+	// setPersistentDecal above already exist to cross. Non-pure, default no-op: every existing
+	// DrawModule implementer is unaffected; only W3DBreakApartPieceDraw (GeneralsMD-only) overrides
+	// it for real. Declared here (not on a dedicated interface) for the same reason those two are.
+	//
+	// GeneralsMod @feature Dimitar 19/09/2026: liveBoneWorldTransform (added same day) is the
+	// dying object's OWN bone's CURRENT world transform -- read by the caller via Drawable::
+	// getCurrentWorldspaceClientBonePositions() on the ORIGINAL dying Drawable, which reflects any
+	// live per-instance bone override (e.g. turret/barrel aim rotation applied via Capture_Bone/
+	// Control_Bone) -- not just the reference model's own bind pose. Defaults to nullptr, in which
+	// case the implementer falls back to mirroring the spawned debris Drawable's own plain
+	// transform (the old, pre-19/09/2026 behavior) -- a caller with no live transform available
+	// (or a bone name that doesn't resolve on the live model) degrades safely rather than failing.
+	virtual void setBreakApartPiece(const AsciiString& modelName, const AsciiString& boneName, const Matrix3D* liveBoneWorldTransform = nullptr) {};
+
+	// GeneralsMod @feature Dimitar 19/09/2026: sibling to setBreakApartPiece() above, for the
+	// complementary "everything that did NOT break apart" piece (BreakApartDeathBehaviorV2's
+	// RemainPieceOCL) -- rather than showing exactly ONE named subobject, this shows every
+	// subobject EXCEPT the ones named in hiddenBoneNames (the full set of bones that were already
+	// spawned as their own individual pieces, across every root the death selected). No live bone
+	// transform is threaded through here: unlike a single broken-off part, the remainder piece has
+	// no one bone to align to, so it's simply positioned like the dying object as a whole, the same
+	// "no live transform available" fallback setBreakApartPiece() itself already has. Same non-pure,
+	// default-no-op shape as setBreakApartPiece(); only W3DBreakApartPieceDraw overrides it.
+	virtual void setBreakApartRemainder(const AsciiString& modelName, const std::vector<AsciiString>& hiddenBoneNames) {};
 
 	virtual void setFullyObscuredByShroud(Bool fullyObscured) = 0;
 

@@ -1059,7 +1059,17 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 
 				const ObjectCreationList *laserDetonationOCL = getProjectileDetonationOCL( v );
 				if( laserDetonationOCL )
-					ObjectCreationList::create( laserDetonationOCL, sourceObj, &projectileDestination, nullptr, INVALID_ANGLE );
+				{
+					// GeneralsMod @feature Dimitar 15/09/2026: a real projectile's detonation OCL gets
+					// "LIKE_EXISTING" orientation for free, because the detonating source object (the
+					// projectile itself) is physically oriented along its own flight path. A laser has no
+					// such object, so ObjectCreationNugget::create() falls back to angle 0 (facing +X)
+					// for any nugget using Disposition = LIKE_EXISTING. Fix: pass the laser's own beam
+					// direction (source -> impact point) as the angle explicitly, matching the same
+					// atan2() convention already used for WeaponRecoil's direction elsewhere in this file.
+					Real laserOrientation = (Real)atan2( projectileDestination.y - sourcePos->y, projectileDestination.x - sourcePos->x );
+					ObjectCreationList::create( laserDetonationOCL, sourceObj, &projectileDestination, nullptr, laserOrientation );
+				}
 			}
 
 			if( inflictDamage )

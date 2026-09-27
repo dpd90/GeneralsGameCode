@@ -864,6 +864,290 @@ int W3DAssetManager::Recolor_Asset(RenderObjClass *robj, const int color)
 }
 
 //---------------------------------------------------------------------
+/** HOUSEFX: house color applied per material pass, chosen by the pass blend mode, so artists
+	mask where the color goes with a (compressed, shared) texture instead of splitting geometry
+	or using per-color ZHC texture copies.
+
+	Opt-in (any one):
+	- Texture name of the pass starts with "HOUSEFX" (e.g. "HOUSEFX_tank_glow.tga").
+	- Material name starts with "HOUSEFX" (the 3ds Max / RenX material name, e.g. "HOUSEFX_Glow").
+	  Texture/material opt-in only affects those passes, so meshes keep any name
+	  (BARREL01, TURRET, ...) for game logic.
+	- Mesh name starts with "HOUSEFX" (e.g. "HOUSEFX01"): every material on the mesh qualifies.
+
+	Qualifying materials are recolored depending on the blend mode of the pass that uses them:
+	- Additive pass     (dest = ONE), authored Emissive > 0:   emissive = house color, ambient/diffuse = 0
+	                                                           -> unlit glow, texture = grayscale glow mask.
+	- Additive pass     (dest = ONE), authored Emissive = 0:   ambient/diffuse = house color, emissive = 0
+	                                                           -> lit (non-glowing) color with the same mask;
+	                                                              paint the base dark under the mask.
+	- Multiply pass     (src = ZERO, dest = SRC_COLOR):        emissive = house color, ambient/diffuse = 0
+	                                                           -> tint, use Primary Gradient ADD and a mask
+	                                                              with white = no change, black = full color.
+	- Alpha blend pass  (src = SRC_ALPHA, dest = 1-SRC_ALPHA): ambient/diffuse = house color
+	                                                           -> lit paint, texture alpha = mask.
+	- Any other pass (e.g. the opaque base pass) is left untouched.
+	A vertex material that is also used by a pass of a different kind (e.g. shared with the base
+	pass because the exporter merged identical settings) is skipped.
+*/
+enum HouseFxPassType
+{
+	HOUSEFX_PASS_NONE,
+	HOUSEFX_PASS_ADD,		//glow or lit, decided by the authored emissive
+	HOUSEFX_PASS_EMISSIVE,
+	HOUSEFX_PASS_LIT
+};
+
+static Bool isHouseFxName(const char *name)
+{
+	return name != nullptr && _strnicmp(name, "HOUSEFX", 7) == 0;
+}
+
+static const char *getMeshBaseName(MeshClass *mesh)
+{
+	//Meshes which are part of another model have names in the form "name.name" while
+	//isolated meshes are just "name".
+	const char *meshName = mesh->Get_Name();
+	if (meshName == nullptr)
+		return nullptr;
+	const char *dot = strchr(meshName, '.');
+	if (dot != nullptr && *(dot + 1))
+		return dot + 1;
+	return meshName;
+}
+
+static Bool isHouseFxMesh(MeshClass *mesh)
+{
+	return isHouseFxName(getMeshBaseName(mesh));
+}
+
+/** True if the mesh is HOUSEFX named or uses at least one HOUSEFX named vertex material. */
+static Bool meshUsesHouseFx(MeshClass *mesh)
+{
+	if (isHouseFxMesh(mesh))
+		return true;
+
+	Bool found = false;
+	MaterialInfoClass *material = mesh->Get_Material_Info();
+	if (material)
+	{
+		for (int i = 0; i < material->Vertex_Material_Count() && !found; i++)
+		{
+			VertexMaterialClass *vmat = material->Peek_Vertex_Material(i);
+			found = (vmat != nullptr && isHouseFxName(vmat->Get_Name()));
+		}
+		for (int i = 0; i < material->Texture_Count() && !found; i++)
+		{
+			TextureClass *tex = material->Peek_Texture(i);
+			found = (tex != nullptr && isHouseFxName(tex->Get_Texture_Name()));
+		}
+		REF_PTR_RELEASE(material);
+	}
+	return found;
+}
+
+static HouseFxPassType getHouseFxPassType(const ShaderClass &shader)
+{
+	const ShaderClass::SrcBlendFuncType src = shader.Get_Src_Blend_Func();
+	const ShaderClass::DstBlendFuncType dst = shader.Get_Dst_Blend_Func();
+
+	if (dst == ShaderClass::DSTBLEND_ONE)
+		return HOUSEFX_PASS_ADD;		//additive: glow (emissive authored) or lit color (emissive 0)
+	if (src == ShaderClass::SRCBLEND_ZERO && dst == ShaderClass::DSTBLEND_SRC_COLOR)
+		return HOUSEFX_PASS_EMISSIVE;	//multiply tint
+	if (src == ShaderClass::SRCBLEND_SRC_ALPHA && dst == ShaderClass::DSTBLEND_ONE_MINUS_SRC_ALPHA)
+		return HOUSEFX_PASS_LIT;		//alpha blended paint
+	return HOUSEFX_PASS_NONE;
+}
+
+struct HouseFxMaterialUse
+{
+	VertexMaterialClass *vmat;
+	HouseFxPassType type;
+	Bool conflict;	//used by passes of different kinds
+	Bool namedByTexture;	//used with a HOUSEFX named texture
+	Bool applied;
+};
+
+static Bool isHouseFxTexture(TextureClass *tex)
+{
+	return tex != nullptr && isHouseFxName(tex->Get_Texture_Name());
+}
+
+/** True if any texture stage of this pass (for polygon pidx, or the single texture) is HOUSEFX named. */
+static Bool passUsesHouseFxTexture(MeshModelClass *model, int pass, int pidx)
+{
+	for (int stage = 0; stage < MeshMatDescClass::MAX_TEX_STAGES; ++stage)
+	{
+		TextureClass *tex = model->Has_Texture_Array(pass, stage)
+			? model->Peek_Texture(pidx, pass, stage)
+			: model->Peek_Single_Texture(pass, stage);
+		if (isHouseFxTexture(tex))
+			return true;
+	}
+	return false;
+}
+
+enum { MAX_HOUSEFX_MATERIAL_USES = 64 };
+
+static Bool addHouseFxMaterialUse(HouseFxMaterialUse *uses, Int &count, VertexMaterialClass *vmat, HouseFxPassType type, Bool namedByTexture)
+{
+	if (vmat == nullptr)
+		return true;
+
+	for (Int i = 0; i < count; ++i)
+	{
+		if (uses[i].vmat == vmat)
+		{
+			if (uses[i].type != type)
+				uses[i].conflict = true;
+			if (namedByTexture)
+				uses[i].namedByTexture = true;
+			return true;
+		}
+	}
+
+	if (count >= MAX_HOUSEFX_MATERIAL_USES)
+		return false;
+
+	uses[count].vmat = vmat;
+	uses[count].type = type;
+	uses[count].conflict = false;
+	uses[count].namedByTexture = namedByTexture;
+	uses[count].applied = false;
+	++count;
+	return true;
+}
+
+static int recolorHouseFxPasses(MeshModelClass *model, Bool wholeMeshIsHouseFx, const int color)
+{
+	const Vector3 houseColor(	(Real)((color >> 16) & 0xff) / 255.0f,
+								(Real)((color >> 8) & 0xff) / 255.0f,
+								(Real)(color & 0xff) / 255.0f );
+	const Vector3 black(0.0f, 0.0f, 0.0f);
+
+	HouseFxMaterialUse uses[MAX_HOUSEFX_MATERIAL_USES];
+	Int useCount = 0;
+	Bool ok = true;
+
+	const int passCount = model->Get_Pass_Count();
+	const int polyCount = model->Get_Polygon_Count();
+	const TriIndex *polys = model->Get_Polygon_Array();
+
+	//Gather every (vertex material, pass kind) combination used by this mesh.
+	for (int pass = 0; pass < passCount && ok; ++pass)
+	{
+		const bool shaderArray = model->Has_Shader_Array(pass);
+		const bool materialArray = model->Has_Material_Array(pass);
+
+		if (!shaderArray && !materialArray)
+		{
+			ok = addHouseFxMaterialUse(uses, useCount, model->Peek_Single_Material(pass),
+				getHouseFxPassType(model->Get_Single_Shader(pass)), passUsesHouseFxTexture(model, pass, 0));
+			continue;
+		}
+
+		//Multi-material mesh: shaders are per polygon, materials per vertex.
+		for (int p = 0; p < polyCount && ok; ++p)
+		{
+			const HouseFxPassType type = getHouseFxPassType(shaderArray ? model->Get_Shader(p, pass) : model->Get_Single_Shader(pass));
+			const Bool texFx = passUsesHouseFxTexture(model, pass, p);
+			if (materialArray && polys != nullptr)
+			{
+				ok = addHouseFxMaterialUse(uses, useCount, model->Peek_Material(polys[p].I, pass), type, texFx)
+					&& addHouseFxMaterialUse(uses, useCount, model->Peek_Material(polys[p].J, pass), type, texFx)
+					&& addHouseFxMaterialUse(uses, useCount, model->Peek_Material(polys[p].K, pass), type, texFx);
+			}
+			else
+			{
+				ok = addHouseFxMaterialUse(uses, useCount, model->Peek_Single_Material(pass), type, texFx);
+			}
+		}
+	}
+
+	if (!ok)
+	{
+		DEBUG_LOG(("HOUSEFX mesh '%s' uses more than %d vertex material combinations; house color skipped.",
+			model->Get_Name(), (int)MAX_HOUSEFX_MATERIAL_USES));
+		return 0;
+	}
+
+	int didRecolor = 0;
+	for (Int i = 0; i < useCount; ++i)
+	{
+		HouseFxMaterialUse &use = uses[i];
+		if (use.type == HOUSEFX_PASS_NONE)
+			continue;
+		if (!wholeMeshIsHouseFx && !use.namedByTexture && !isHouseFxName(use.vmat->Get_Name()))
+			continue;
+		if (use.conflict)
+		{
+			DEBUG_LOG(("HOUSEFX mesh '%s': vertex material '%s' is shared with a pass of a different kind; give the house color pass its own vertex material settings. Skipped.",
+				model->Get_Name(), use.vmat->Get_Name()));
+			continue;
+		}
+
+		VertexMaterialClass *vmat = use.vmat;
+
+		//Take all lighting colors from the material, not from exported vertex colors (DCG/DIG),
+		//otherwise the house color set below is ignored.
+		vmat->Set_Ambient_Color_Source(VertexMaterialClass::MATERIAL);
+		vmat->Set_Diffuse_Color_Source(VertexMaterialClass::MATERIAL);
+		vmat->Set_Emissive_Color_Source(VertexMaterialClass::MATERIAL);
+		vmat->Set_Lighting(true);	//emissive/ambient/diffuse only apply with lighting enabled
+
+		HouseFxPassType applyType = use.type;
+		if (applyType == HOUSEFX_PASS_ADD)
+		{
+			//Artist choice via the authored emissive: any emissive = glow, black emissive = lit color.
+			Vector3 authoredEmissive;
+			vmat->Get_Emissive(&authoredEmissive);
+			const Bool glow = (authoredEmissive.X > 0.0f || authoredEmissive.Y > 0.0f || authoredEmissive.Z > 0.0f);
+			applyType = glow ? HOUSEFX_PASS_EMISSIVE : HOUSEFX_PASS_LIT;
+		}
+
+		if (applyType == HOUSEFX_PASS_EMISSIVE)
+		{
+			vmat->Set_Emissive(houseColor);
+			vmat->Set_Ambient(black);
+			vmat->Set_Diffuse(black);
+		}
+		else
+		{
+			vmat->Set_Emissive(black);
+			vmat->Set_Ambient(houseColor);
+			vmat->Set_Diffuse(houseColor);
+		}
+		use.applied = true;
+		didRecolor = 1;
+	}
+
+	//Primary Gradient "Disable" ignores the lighting result entirely, so the house color would
+	//never show. Fall back to Modulate (texture * house color) on single shader passes we recolored.
+	for (int pass = 0; pass < passCount; ++pass)
+	{
+		if (model->Has_Shader_Array(pass) || model->Has_Material_Array(pass))
+			continue;
+
+		VertexMaterialClass *vmat = model->Peek_Single_Material(pass);
+		Bool recolored = false;
+		for (Int i = 0; i < useCount && !recolored; ++i)
+			recolored = (uses[i].vmat == vmat && uses[i].applied);
+		if (!recolored)
+			continue;
+
+		ShaderClass shader = model->Get_Single_Shader(pass);
+		if (shader.Get_Primary_Gradient() == ShaderClass::GRADIENT_DISABLE)
+		{
+			shader.Set_Primary_Gradient(ShaderClass::GRADIENT_MODULATE);
+			model->Set_Single_Shader(shader, pass);
+		}
+	}
+
+	return didRecolor;
+}
+
+//---------------------------------------------------------------------
 /** Generals specific code to generate customized render objects for each team color
 */
 int W3DAssetManager::Recolor_Mesh(RenderObjClass *robj, const int color)
@@ -886,6 +1170,10 @@ int W3DAssetManager::Recolor_Mesh(RenderObjClass *robj, const int color)
 			Recolor_Vertex_Material(material->Peek_Vertex_Material(i),color);
 		didRecolor=1;
 	}
+
+	// recolor HOUSEFX passes (house color applied per pass by blend mode)
+	if (meshUsesHouseFx(mesh))
+		didRecolor |= recolorHouseFxPasses(model, isHouseFxMesh(mesh), color);
 
 	// recolor textures
 	TextureClass *newtex,*oldtex;
@@ -1106,6 +1394,10 @@ static Bool getMeshColorMethods(MeshClass *mesh, Bool &vertexColor, Bool &textur
 		if ( _strnicmp(meshName,"HOUSECOLOR", 10) == 0)
 			vertexColor = true;
 	}
+
+	//HOUSEFX meshes/materials recolor individual pass vertex materials, so they need unique vertex materials too.
+	if (meshUsesHouseFx(mesh))
+		vertexColor = true;
 
 	return (vertexColor || textureColor);
 }

@@ -87,6 +87,14 @@ const char* const DamageTypeFlags::s_bitNameList[] =
 	"HEALING_INFANTRY",
 	"HEALING_STRUCTURE",
 	"HEALING_AIRCRAFT",
+	"OVERTIME1",	///< GeneralsMod @feature Dimitar 15/09/2026: DamageOverTimeUpdateV2 channel 1
+	"OVERTIME2",
+	"OVERTIME3",
+	"OVERTIME4",
+	"OVERTIME5",
+	"OVERTIME6",
+	"OVERTIME7",
+	"OVERTIME8",
 
 	nullptr
 };
@@ -190,7 +198,8 @@ void DamageInfoOutput::xfer( Xfer *xfer )
 {
 
 	// version
-	XferVersion currentVersion = 1;
+	// GeneralsMod @feature Dimitar 19/09/2026: bumped to 2 to persist m_healthBeforeDamage.
+	XferVersion currentVersion = 2;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -202,6 +211,12 @@ void DamageInfoOutput::xfer( Xfer *xfer )
 
 	// no effect
 	xfer->xferBool( &m_noEffect );
+
+	// GeneralsMod @feature Dimitar 19/09/2026: health before this hit (see Damage.h comment)
+	if( version >= 2 )
+	{
+		xfer->xferReal( &m_healthBeforeDamage );
+	}
 
 }
 

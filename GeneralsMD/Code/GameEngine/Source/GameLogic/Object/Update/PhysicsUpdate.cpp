@@ -756,6 +756,21 @@ UpdateSleepTime PhysicsBehavior::update()
 		{
 			groundZ += obj->getCarrierDeckHeight();
 		}
+
+		// GeneralsMod @debug Dimitar 21/09/2026: TEMPORARY -- narrowly gated (template name contains
+		// "DebrisPiece") per-frame trace for BreakApartDeathBehaviorV2's own debris pieces, to see
+		// whether they're actually falling toward groundZ frame by frame, stuck at spawn height, or
+		// reaching groundZ but not visually reflecting it. Not a generic diagnostic -- remove once
+		// the "still floating" report is root-caused, this would spam the log for every other object
+		// in the game otherwise.
+		if (strstr(obj->getTemplate()->getName().str(), "DebrisPiece") != nullptr)
+		{
+			DEBUG_LOG(("PhysicsUpdate frame=%u obj=%s id=%d: oldPosZ=%.3f newPosZ(pre-clamp)=%.3f groundZ=%.3f m_vel=(%.3f,%.3f,%.3f) m_accel=(%.3f,%.3f,%.3f) ALLOW_TO_FALL=%d ALLOW_BOUNCE=%d layer=%d",
+				TheGameLogic->getFrame(), obj->getTemplate()->getName().str(), obj->getID(),
+				oldPosZ, mtx.Get_Z_Translation(), groundZ, m_vel.x, m_vel.y, m_vel.z, m_accel.x, m_accel.y, m_accel.z,
+				getFlag(ALLOW_TO_FALL), getFlag(ALLOW_BOUNCE), (Int)obj->getLayer()));
+		}
+
 		gotBounceForce = handleBounce(oldPosZ, mtx.Get_Z_Translation(), groundZ, &bounceForce);
 
 		// remember our z-vel prior to doing ground-slam adjustment

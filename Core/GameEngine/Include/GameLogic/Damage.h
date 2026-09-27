@@ -97,6 +97,22 @@ enum DamageType CPP_11(: Int)
 	DAMAGE_HEALING_STRUCTURE			/*= 40*/,
 	DAMAGE_HEALING_AIRCRAFT				/*= 41*/,
 
+	// GeneralsMod @feature Dimitar 15/09/2026: 8 dedicated trigger/tick types for
+	// DamageOverTimeUpdateV2 -- deliberately separate from DAMAGE_FLAME/DAMAGE_POISON so a
+	// generic overtime-strike weapon doesn't inherit their existing ArmorSet/DamageFX resistance
+	// tuning or visual side effects. Eight channels (rather than one) let up to 8 independently-
+	// configured DamageOverTimeUpdateV2 instances coexist on one object without refreshing/
+	// clobbering each other, and each channel gets its own independently-tunable ArmorSet Percent
+	// coefficient per unit, exactly like FLAME/POISON/EXPLOSION already do.
+	DAMAGE_OVERTIME1							/*= 42*/,
+	DAMAGE_OVERTIME2							/*= 43*/,
+	DAMAGE_OVERTIME3							/*= 44*/,
+	DAMAGE_OVERTIME4							/*= 45*/,
+	DAMAGE_OVERTIME5							/*= 46*/,
+	DAMAGE_OVERTIME6							/*= 47*/,
+	DAMAGE_OVERTIME7							/*= 48*/,
+	DAMAGE_OVERTIME8							/*= 49*/,
+
 	// Please note: There is a string array DamageTypeFlags::s_bitNameList[]
 
 	DAMAGE_NUM_TYPES
@@ -345,6 +361,7 @@ public:
 	{
 		m_actualDamageDealt = 0;
 		m_actualDamageClipped = 0;
+		m_healthBeforeDamage = 0;
 		m_noEffect = false;
 	}
 
@@ -363,6 +380,13 @@ public:
 	*/
 	Real m_actualDamageDealt;
 	Real m_actualDamageClipped;			///< (see comment for m_actualDamageDealt)
+	// GeneralsMod @feature Dimitar 19/09/2026: health the object had immediately before this hit
+	// (ActiveBody's own m_prevHealth, copied out at the same point m_actualDamageClipped is
+	// computed) -- added so a DieModule (e.g. BreakApartDeathBehaviorV2) can compute "this hit's
+	// raw damage as a percentage of the health I had right before it", which is NOT the same
+	// ratio as damage-vs-max-health. Only meaningful on the DamageInfo passed to onDie(); not
+	// touched at all by non-lethal hits before that point.
+	Real m_healthBeforeDamage;
 	Bool m_noEffect;								///< if true, no damage was done at all (generally due to being InactiveBody)
 
 protected:

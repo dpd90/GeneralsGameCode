@@ -508,6 +508,16 @@ private:
 	RenderObjClass*								m_renderObject;										///< W3D Render object for this drawable
 	Shadow*												m_shadow;													///< Updates/Renders shadows of this object
 	Shadow*												m_terrainDecal;
+	// GeneralsMod @fix Dimitar 14/09/2026: nukeCurrentRender() unconditionally releases m_terrainDecal
+	// whenever the render object is torn down (e.g. a ConditionState-driven Model swap), but the
+	// model-rebuild code that follows only recreates m_shadow, never m_terrainDecal -- so any active
+	// terrain/persistent decal was silently lost forever on the next model change. These cache the
+	// currently-active decal's parameters so it can be reapplied right after the rebuild.
+	TerrainDecalType							m_terrainDecalType;
+	AsciiString										m_persistentDecalTexture;
+	Real												m_persistentDecalSizeX;
+	Real												m_persistentDecalSizeY;
+	ShadowType									m_persistentDecalStyle;
 	TerrainTracksRenderObjClass*	m_trackRenderObject;							///< This is rendered under object
 	ParticleSystemIDVec						m_particleSystemIDs;							///< The ID numbers of the particle systems currently running.
 	std::vector<ModelConditionInfo::HideShowSubObjInfo>		m_subObjectVec;

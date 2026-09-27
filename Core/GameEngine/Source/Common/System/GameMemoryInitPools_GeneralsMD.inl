@@ -128,6 +128,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "HackInternetStateMachine", 32, 32 },
 	{ "HackInternetAIUpdate", 32, 32 },
 	{ "MissileAIUpdate", 512, 32 },
+	{ "MissileAIUpdateV2", 512, 32 },///< GeneralsMod @feature Dimitar 25/09/2026: MissileAIUpdate + DetonateAtLastTargetPosition / retargeting, same sizing
 	{ "DumbProjectileBehavior", 64, 32 },
 	{ "DestroyDie", 1024, 32 },
 	{ "UpgradeDie", 128, 32 },
@@ -174,6 +175,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "InstantDeathBehavior", 512, 32 },
 	{ "LaserUpdate", 32, 32 },
 	{ "PointDefenseLaserUpdate", 32, 32 },
+	{ "PointDefenseUpdateV2", 32, 32 },///< GeneralsMod @feature Dimitar 14/09/2026: opt-in alternative to PointDefenseLaserUpdate (fixed PredictTargetVelocityFactor, multi-target cache, optional idle sleep)
+	{ "ProjectileClipFeedbackUpdateV2", 64, 32 },///< GeneralsMod @feature Dimitar 25/09/2026: re-pushes ProjectileBoneFeedback ammo state (and optionally weapon model conditions) for DISABLED_HELD riders
 	{ "CleanupHazardUpdate", 32, 32 },
 	{ "AutoFindHealingUpdate", 256, 32 },
 	{ "CommandButtonHuntUpdate", 512, 8 },
@@ -232,6 +235,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "ShroudCrateCollide", 32, 32 },
 	{ "SlavedUpdate", 64, 32 },
 	{ "SlowDeathBehavior", 1400, 256 },
+	{ "BreakApartDeathBehaviorV2", 512, 64 },
 	{ "SpyVisionUpdate", 16, 16 },
 	{ "DefaultProductionExitUpdate", 32, 32 },
 	{ "SpawnPointProductionExitUpdate", 32, 32 },
@@ -246,6 +250,20 @@ static PoolSizeRec PoolSizes[] =
 	{ "SwitchStateWhenDamagedBehaviorV2", 16, 16 },///< GeneralsMod @feature Dimitar 11/09/2026: new module, automatic damage-triggered counterpart to SwitchStateV2Activate
 	{ "ShieldGeneratorUpdateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026, renamed 13/09/2026: temporary absorption-pool shield (paired worker for ShieldGeneratorActivateV2)
 	{ "ShieldGeneratorActivateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026: new module, button-facing half of ShieldGeneratorUpdateV2
+	{ "DamageOverTimeUpdateV2", 18000, 2000 },///< GeneralsMod @feature Dimitar 16/09/2026: bumped from (700,64) once the real usage pattern was
+	///< confirmed -- up to 3 KindOf-gated variants (VEHICLE/STRUCTURE/INFANTRY) x 8 OVERTIME channels = up to 24
+	///< separately-tagged DamageOverTimeUpdateV2 instances, ALL wrapped in InheritableModule on DefaultThingTemplate.
+	///< This pool is shared by CLASS NAME across every one of those 24 tags (MEMORY_POOL_GLUE keys on the C++ class,
+	///< not the INI ModuleTag) -- so it must hold roughly (24 x peak concurrent Object count) live instances at
+	///< once, not ~1x like a typical per-unit-type module. DefaultThingTemplate is struct-copied into literally
+	///< every parsed Object template with no KindOf exception (ThingFactory::newTemplate()), so "concurrent Object
+	///< count" here means every unit/building/projectile AND every decorative prop/tree/rock on the map, not just
+	///< active combat units -- a large map can have a lot of those. 18000 = 24x750, a deliberately generous
+	///< estimate of peak concurrent objects in a big match; overflow raised to 2000 (from 64) since a 24x-bigger
+	///< initial reservation would otherwise regrow in comically small 64-instance increments. Exceeding `initial`
+	///< does NOT crash -- userMemoryAdjustPoolSize()/the pool allocator just grows by `overflow`-sized blocks as
+	///< needed (confirmed by reading GameMemoryInit.cpp) -- so this number only needs to be "generous enough to
+	///< avoid needless early-match regrowth", not exactly right; safe to raise further if actual usage runs higher.
 	{ "MissileLauncherBuildingUpdate", 32, 32 },
 	{ "SquishCollide", 512, 32 },
 	{ "StructureBody", 512, 64 },
@@ -263,9 +281,11 @@ static PoolSizeRec PoolSizes[] =
 	{ "TechBuildingBehavior", 32, 32 },
 	{ "ToppleUpdate", 256, 128 },
 	{ "TransitionDamageFX", 384, 128 },
+	{ "ContainedTransitionDamageFXV2", 64, 32 },///< GeneralsMod @feature Dimitar 25/09/2026: TransitionDamageFX that also fires for contained riders whose state is set via setDamageState (OverlordContain)
 	{ "TransportAIUpdate", 64, 32 },
 	{ "TransportContain", 128, 32 },
 	{ "RiderChangeContain", 128, 32 },
+	{ "RiderChangeContainV2", 128, 32 },///< GeneralsMod @feature Dimitar 26/09/2026: RiderChangeContain with unlimited Rider rows
 	{ "InternetHackContain", 16, 16 },
 	{ "TunnelContain", 8, 8 },
 	{ "TunnelContainDie", 32, 32 },
@@ -310,7 +330,10 @@ static PoolSizeRec PoolSizes[] =
 	{ "W3DLaserDraw", 32, 32 },
 	{ "W3DModelDraw", 2048, 512 },
 	{ "W3DPersistentAnimModelDraw", 64, 64 },///< GeneralsMod @feature Dimitar 13/09/2026: opt-in W3DModelDraw subclass, animates through configurable DisabledTypes
+	{ "W3DWheeledTankDraw", 32, 16 },///< GeneralsMod @feature Dimitar 15/09/2026: opt-in W3DTankDraw subclass, differential-steered wheel bones (sized like W3DTankTruckDraw)
+	{ "W3DBreakApartPieceDraw", 1024, 128 },///< GeneralsMod @feature Dimitar 19/09/2026: one instance per spawned BreakApartDeathBehaviorV2 debris piece -- a single death can spawn a whole bone subtree's worth at once, and several units can die simultaneously, so this is sized well above the DieModule's own BreakApartDeathBehaviorV2 row (512, 64) above
 	{ "W3DOverlordTankDraw", 64, 64 },
+	{ "W3DOverlordWheeledTankDraw", 32, 16 },///< GeneralsMod @feature Dimitar 23/09/2026: W3DWheeledTankDraw + W3DOverlordTankDraw rider drawing (sized like W3DWheeledTankDraw)
 	{ "W3DOverlordTruckDraw", 64, 64 },
 	{ "W3DOverlordAircraftDraw", 64, 64 },
 	{ "W3DPoliceCarDraw", 32, 32 },

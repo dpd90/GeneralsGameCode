@@ -50,6 +50,9 @@
 #include "W3DDevice/GameClient/Module/W3DPropDraw.h"
 #if RTS_ZEROHOUR
 #include "W3DDevice/GameClient/Module/W3DPersistentAnimModelDraw.h"///< GeneralsMod @feature Dimitar 13/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
+#include "W3DDevice/GameClient/Module/W3DWheeledTankDraw.h"///< GeneralsMod @feature Dimitar 15/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
+#include "W3DDevice/GameClient/Module/W3DBreakApartPieceDraw.h"///< GeneralsMod @feature Dimitar 19/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
+#include "W3DDevice/GameClient/Module/W3DOverlordWheeledTankDraw.h"///< GeneralsMod @feature Dimitar 23/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
 #endif
 
 //-------------------------------------------------------------------------------------------------
@@ -89,6 +92,15 @@ void W3DModuleFactory::init()
 	// stay guarded here -- this factory file is shared with the base Generals build, which has no
 	// copy of the header/source and would fail to compile without this #if.
 	addModule( W3DPersistentAnimModelDraw );
+	// GeneralsMod @feature Dimitar 15/09/2026: same reasoning as W3DPersistentAnimModelDraw above --
+	// GeneralsMD-only class, must stay guarded in this shared factory file.
+	addModule( W3DWheeledTankDraw );
+	// GeneralsMod @feature Dimitar 19/09/2026: same reasoning as W3DPersistentAnimModelDraw above --
+	// GeneralsMD-only class, must stay guarded in this shared factory file.
+	addModule( W3DBreakApartPieceDraw );
+	// GeneralsMod @feature Dimitar 23/09/2026: same reasoning as W3DPersistentAnimModelDraw above --
+	// GeneralsMD-only class, must stay guarded in this shared factory file.
+	addModule( W3DOverlordWheeledTankDraw );
 #endif
 #endif
 
