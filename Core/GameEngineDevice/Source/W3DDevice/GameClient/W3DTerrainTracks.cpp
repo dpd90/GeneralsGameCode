@@ -59,9 +59,15 @@
 #include "GameLogic/TerrainLogic.h"
 #include "GameLogic/Object.h"
 #include "GameClient/Drawable.h"
+#include "WWMath/matrix3d.h"
 
 
 #define BRIDGE_OFFSET_FACTOR	0.25f	//amount to raise tracks above bridges.
+#define DEFAULT_TRACK_SPACING  (MAP_XY_FACTOR  * 1.4f)	///< legacy total track width when no tread bones are found
+#define DEFAULT_TRACK_WIDTH	4.0f							///< legacy assumed width of one tread
+#define DEFAULT_TRACK_SEGMENT_LENGTH	(1.0f*MAP_XY_FACTOR)	///< world units travelled between track edges
+#define DEFAULT_LEFT_TREAD_BONE		"TREADFX01"
+#define DEFAULT_RIGHT_TREAD_BONE	"TREADFX02"
 //=============================================================================
 // TerrainTracksRenderObjClass::~TerrainTracksRenderObjClass
 //=============================================================================
@@ -89,6 +95,17 @@ TerrainTracksRenderObjClass::TerrainTracksRenderObjClass()
 	m_totalEdgesAdded=0;
 	m_bound=false;
 	m_ownerDrawable = nullptr;
+	m_width=DEFAULT_TRACK_SPACING;
+	m_length=DEFAULT_TRACK_SEGMENT_LENGTH;
+	m_tileLength=0.0f;
+	m_vAccum=0.0f;
+	m_split=false;
+	m_followTerrain=false;
+	for (Int k=0; k<TRACK_VERTS_PER_EDGE; k++)
+	{
+		m_laneOffset[k]=0.0f;
+		m_laneU[k]=0.0f;
+	}
 }
 
 //=============================================================================
@@ -156,15 +173,69 @@ Int TerrainTracksRenderObjClass::freeTerrainTracksResources()
 //=============================================================================
 /** Setup size settings and allocate W3D texture */
 //=============================================================================
-void TerrainTracksRenderObjClass::init( Real width, Real length, const Char *texturename)
+void TerrainTracksRenderObjClass::init( const TerrainTrackSettings &settings, Real boneSpacing, Bool haveBones, const Char *texturename)
 {
 	freeTerrainTracksResources();	//free old data and ib/vb
 
 	m_boundingSphere.Init(Vector3(0,0,0),400*MAP_XY_FACTOR);
 	m_boundingBox.Center.Set(0.0f, 0.0f, 0.0f);
 	m_boundingBox.Extent.Set(400.0f*MAP_XY_FACTOR, 400.0f*MAP_XY_FACTOR, 1.0f);
-	m_width=width;
-	m_length=length;
+
+	m_length = (settings.segmentLength > 0.0f) ? settings.segmentLength : DEFAULT_TRACK_SEGMENT_LENGTH;
+	m_tileLength = (settings.tileLength > 0.0f) ? settings.tileLength : 0.0f;
+	m_vAccum = 0.0f;
+	m_split = (settings.treadWidth > 0.0f);
+	m_followTerrain = m_split && settings.followTerrain;
+
+	if (!m_split)
+	{	// Legacy look: one texture stretched across the whole vehicle width.  Drawn as two halves
+		// that meet in the middle, which is visually identical to the original single quad.
+		m_width = haveBones ? (boneSpacing + DEFAULT_TRACK_WIDTH) : DEFAULT_TRACK_SPACING;
+		m_laneOffset[0] = -0.5f*m_width;	m_laneU[0] = 0.0f;
+		m_laneOffset[1] = 0.0f;						m_laneU[1] = 0.5f;
+		m_laneOffset[2] = 0.0f;						m_laneU[2] = 0.5f;
+		m_laneOffset[3] = 0.5f*m_width;		m_laneU[3] = 1.0f;
+	}
+	else
+	{	// Split look: two tread-width strips centred on each tread, nothing drawn in between.
+		const Real treadWidth = settings.treadWidth;
+		Real spacing;	// centre-to-centre distance between the treads
+		if (settings.treadSpacing > 0.0f)
+			spacing = settings.treadSpacing;
+		else if (haveBones)
+			spacing = boneSpacing;
+		else
+			spacing = DEFAULT_TRACK_SPACING - DEFAULT_TRACK_WIDTH;
+		if (spacing < 0.0f)
+			spacing = 0.0f;
+
+		m_width = spacing + treadWidth;
+		m_laneOffset[0] = -0.5f*spacing - 0.5f*treadWidth;	//left outer
+		m_laneOffset[1] = -0.5f*spacing + 0.5f*treadWidth;	//left inner
+		m_laneOffset[2] =  0.5f*spacing - 0.5f*treadWidth;	//right inner
+		m_laneOffset[3] =  0.5f*spacing + 0.5f*treadWidth;	//right outer
+
+		switch (settings.textureLayout)
+		{
+			case TRACK_TEXTURE_SHARED:
+				m_laneU[0] = 0.0f; m_laneU[1] = 1.0f; m_laneU[2] = 0.0f; m_laneU[3] = 1.0f;
+				break;
+			case TRACK_TEXTURE_MIRRORED:
+				m_laneU[0] = 0.0f; m_laneU[1] = 1.0f; m_laneU[2] = 1.0f; m_laneU[3] = 0.0f;
+				break;
+			case TRACK_TEXTURE_ATLAS:
+				m_laneU[0] = 0.0f; m_laneU[1] = 0.5f; m_laneU[2] = 0.5f; m_laneU[3] = 1.0f;
+				break;
+			case TRACK_TEXTURE_WIDE:
+			default:
+			{	// sample only the outer bands of a classic full-width texture
+				const Real band = (m_width > 0.0f) ? (treadWidth / m_width) : 0.5f;
+				m_laneU[0] = 0.0f; m_laneU[1] = band; m_laneU[2] = 1.0f - band; m_laneU[3] = 1.0f;
+				break;
+			}
+		}
+	}
+
 	//no sense culling these things since they have very irregular shape and fade
 	//out over time.
 	Set_Force_Visible(TRUE);
@@ -202,8 +273,12 @@ void TerrainTracksRenderObjClass::addCapEdgeToTrack(Real x, Real y)
 	PathfindLayerEnum objectLayer;
 	Real eHeight;
 
+	Bool onGround = TRUE;
 	if (m_ownerDrawable && (objectLayer=m_ownerDrawable->getObject()->getLayer()) != LAYER_GROUND)
+	{
 		eHeight=BRIDGE_OFFSET_FACTOR+TheTerrainLogic->getLayerHeight(x,y,objectLayer,&vZTmp);
+		onGround = FALSE;
+	}
 	else
 		eHeight=TheTerrainLogic->getGroundHeight(x,y,&vZTmp);
 
@@ -246,43 +321,27 @@ void TerrainTracksRenderObjClass::addCapEdgeToTrack(Real x, Real y)
 	//we traveled far enough from last point.
 	//accept new point
 	vDir.Z=0;	//ignore height
+	const Real segmentDistance = vDir.Length();
 	vDir.Normalize();
 
 	Vector3	vX;
 
 	Vector3::Cross_Product(vDir,vZ,&vX);
 
-	//calculate left end point
 	edgeInfo& topEdge = m_edges[m_topIndex];
 
-	topEdge.endPointPos[0]=vPos-(m_width*0.5f*vX);	///@todo: try getting height at endpoint
-	topEdge.endPointPos[0].Z += 0.2f * MAP_XY_FACTOR;	//raise above terrain slightly
-
-	if (m_totalEdgesAdded&1)	//every other edge has different set of UV's
-	{
-		topEdge.endPointUV[0].X=0.0f;
-		topEdge.endPointUV[0].Y=0.0f;
+	Real edgeV;
+	if (m_tileLength > 0.0f)
+	{	//continuous tiling: V follows distance travelled, so the texture never flips.
+		m_vAccum += segmentDistance / m_tileLength;
+		edgeV = m_vAccum;
 	}
 	else
-	{
-		topEdge.endPointUV[0].X=0.0f;
-		topEdge.endPointUV[0].Y=1.0f;
+	{	//legacy: every other edge has different set of UV's (texture ping-pongs)
+		edgeV = (m_totalEdgesAdded&1) ? 0.0f : 1.0f;
 	}
 
-	//calculate right end point
-	topEdge.endPointPos[1]=vPos+(m_width*0.5f*vX);	///@todo: try getting height at endpoint
-	topEdge.endPointPos[1].Z += 0.2f * MAP_XY_FACTOR;	//raise above terrain slightly
-
-	if (m_totalEdgesAdded&1)	//every other edge has different set of UV's
-	{
-		topEdge.endPointUV[1].X=1.0f;
-		topEdge.endPointUV[1].Y=0.0f;
-	}
-	else
-	{
-		topEdge.endPointUV[1].X=1.0f;
-		topEdge.endPointUV[1].Y=1.0f;
-	}
+	fillEdge(topEdge, vPos, vDir, vX, onGround, edgeV);
 
 	topEdge.timeAdded=WW3D::Get_Sync_Time();
 	topEdge.alpha=0.0f;	//fully transparent at cap.
@@ -316,6 +375,7 @@ void TerrainTracksRenderObjClass::addEdgeToTrack(Real x, Real y)
 
 		m_haveAnchor=true;
 		m_airborne = true;
+		m_vAccum = 0.0f;
 		m_haveCap = true;	//single segment tracks are always capped because nothing is drawn.
 		return;
 	}
@@ -327,8 +387,12 @@ void TerrainTracksRenderObjClass::addEdgeToTrack(Real x, Real y)
 	Real eHeight;
 	PathfindLayerEnum objectLayer;
 
+	Bool onGround = TRUE;
 	if (m_ownerDrawable && (objectLayer=m_ownerDrawable->getObject()->getLayer()) != LAYER_GROUND)
+	{
 		eHeight=BRIDGE_OFFSET_FACTOR+TheTerrainLogic->getLayerHeight(x,y,objectLayer,&vZTmp);
+		onGround = FALSE;
+	}
 	else
 		eHeight=TheTerrainLogic->getGroundHeight(x,y,&vZTmp);
 
@@ -363,6 +427,7 @@ void TerrainTracksRenderObjClass::addEdgeToTrack(Real x, Real y)
 	//we traveled far enough from last point.
 	//accept new point
 	vDir.Z=0;	//ignore height
+	const Real segmentDistance = vDir.Length();
 	vDir.Normalize();
 
 	Vector3	vX;
@@ -371,35 +436,18 @@ void TerrainTracksRenderObjClass::addEdgeToTrack(Real x, Real y)
 
 	edgeInfo& topEdge = m_edges[m_topIndex];
 
-	//calculate left end point
-	topEdge.endPointPos[0]=vPos-(m_width*0.5f*vX);	///@todo: try getting height at endpoint
-	topEdge.endPointPos[0].Z += 0.2f * MAP_XY_FACTOR;	//raise above terrain slightly
-
-	if (m_totalEdgesAdded&1)	//every other edge has different set of UV's
-	{
-		topEdge.endPointUV[0].X=0.0f;
-		topEdge.endPointUV[0].Y=0.0f;
+	Real edgeV;
+	if (m_tileLength > 0.0f)
+	{	//continuous tiling: V follows distance travelled, so the texture never flips.
+		m_vAccum += segmentDistance / m_tileLength;
+		edgeV = m_vAccum;
 	}
 	else
-	{
-		topEdge.endPointUV[0].X=0.0f;
-		topEdge.endPointUV[0].Y=1.0f;
+	{	//legacy: every other edge has different set of UV's (texture ping-pongs)
+		edgeV = (m_totalEdgesAdded&1) ? 0.0f : 1.0f;
 	}
 
-	//calculate right end point
-	topEdge.endPointPos[1]=vPos+(m_width*0.5f*vX);	///@todo: try getting height at endpoint
-	topEdge.endPointPos[1].Z += 0.2f * MAP_XY_FACTOR;	//raise above terrain slightly
-
-	if (m_totalEdgesAdded&1)	//every other edge has different set of UV's
-	{
-		topEdge.endPointUV[1].X=1.0f;
-		topEdge.endPointUV[1].Y=0.0f;
-	}
-	else
-	{
-		topEdge.endPointUV[1].X=1.0f;
-		topEdge.endPointUV[1].Y=1.0f;
-	}
+	fillEdge(topEdge, vPos, vDir, vX, onGround, edgeV);
 
 	topEdge.timeAdded=WW3D::Get_Sync_Time();
 	topEdge.alpha=1.0f;	//fully opaque at start.
@@ -415,6 +463,51 @@ void TerrainTracksRenderObjClass::addEdgeToTrack(Real x, Real y)
 }
 
 //=============================================================================
+// TerrainTracksRenderObjClass::fillEdge
+//=============================================================================
+/** GeneralsMod @feature Dimitar 29/09/2026: compute the TRACK_VERTS_PER_EDGE vertices and UVs of one track edge.
+		vPos is the track centre, vDir the normalized horizontal travel direction and vX the
+		(terrain-aligned) vector pointing right of the travel direction.
+*/
+//=============================================================================
+void TerrainTracksRenderObjClass::fillEdge( edgeInfo &edge, const Vector3 &vPos, const Vector3 &vDir, const Vector3 &vX, Bool onGround, Real v )
+{
+	Vector3 side = vX;
+	Bool reversing = FALSE;
+
+	if (m_split)
+	{
+		//keep the strips exactly where the treads are, even on slopes.
+		if (side.Length2() > 0.0001f)
+			side.Normalize();
+
+		//left/right treads belong to the chassis, not to the travel direction: when the vehicle
+		//backs up, the strip on the travel-left side is the chassis' right tread.
+		if (m_ownerDrawable)
+		{
+			const Matrix3D *mtx = m_ownerDrawable->getTransformMatrix();
+			if (mtx)
+			{
+				const Vector3 facing = mtx->Get_X_Vector();
+				reversing = (facing.X*vDir.X + facing.Y*vDir.Y) < 0.0f;
+			}
+		}
+	}
+
+	for (Int k=0; k<TRACK_VERTS_PER_EDGE; k++)
+	{
+		Vector3 &pos = edge.endPointPos[k];
+		pos = vPos + m_laneOffset[k]*side;
+		if (m_followTerrain && onGround)
+			pos.Z = TheTerrainLogic->getGroundHeight(pos.X, pos.Y);
+		pos.Z += 0.2f * MAP_XY_FACTOR;	//raise above terrain slightly
+
+		edge.endPointUV[k].X = reversing ? m_laneU[TRACK_VERTS_PER_EDGE-1-k] : m_laneU[k];
+		edge.endPointUV[k].Y = v;
+	}
+}
+
+//=============================================================================
 // TerrainTracksRenderObjClass::Render
 //=============================================================================
 /** Does nothing.  Just increments a counter of how many track edges were
@@ -427,29 +520,30 @@ void TerrainTracksRenderObjClass::Render(RenderInfoClass & rinfo)
 		TheTerrainTracksRenderObjClassSystem->m_edgesToFlush += m_activeEdgeCount;
 }
 
-#define DEFAULT_TRACK_SPACING  (MAP_XY_FACTOR  * 1.4f)
-#define DEFAULT_TRACK_WIDTH	4.0f;
-
-/**Find distance between the "trackfx" bones of the model.  This tells us the correct
-   width for the trackmarks.
+/**Find the distance between the centres of the two tread bones of the model
+   (TREADFX01/TREADFX02 unless overridden in INI).  Returns FALSE if either bone is missing.
 */
-static Real computeTrackSpacing(RenderObjClass *renderObj)
+static Bool computeTreadBoneSpacing(RenderObjClass *renderObj, const TerrainTrackSettings &settings, Real *spacing)
 {
-	Real trackSpacing = DEFAULT_TRACK_SPACING;
+	if (!renderObj)
+		return FALSE;
+
+	const Char *leftName = (settings.leftBone && settings.leftBone[0]) ? settings.leftBone : DEFAULT_LEFT_TREAD_BONE;
+	const Char *rightName = (settings.rightBone && settings.rightBone[0]) ? settings.rightBone : DEFAULT_RIGHT_TREAD_BONE;
 	Int leftTrack;
 	Int rightTrack;
 
-	if ((leftTrack=renderObj->Get_Bone_Index( "TREADFX01" )) != 0 && (rightTrack=renderObj->Get_Bone_Index( "TREADFX02" )) != 0)
+	if ((leftTrack=renderObj->Get_Bone_Index( leftName )) != 0 && (rightTrack=renderObj->Get_Bone_Index( rightName )) != 0)
 	{	//both bones found, determine distance between them.
 		Vector3 leftPos,rightPos;
 		leftPos=renderObj->Get_Bone_Transform( leftTrack ).Get_Translation();
 		rightPos=renderObj->Get_Bone_Transform( rightTrack ).Get_Translation();
 		rightPos -= leftPos;	//get distance between centers of tracks
-		trackSpacing = rightPos.Length() + DEFAULT_TRACK_WIDTH;	//add width of each track
-		///@todo: It's assumed that all tank treads have the same width.
-	};
+		*spacing = rightPos.Length();
+		return TRUE;
+	}
 
-	return trackSpacing;
+	return FALSE;
 }
 
 //=============================================================================
@@ -460,13 +554,12 @@ static Real computeTrackSpacing(RenderObjClass *renderObj)
 	updates with additional edges.  Once it is unbound, it will expire and return
 	to the free store once all tracks have faded out.
 
-	Input: width in world units of each track edge (should probably width of vehicle).
-		   length in world units between edges.  Shorter lengths produce more edges and
-		   smoother curves.
-		   texture to use for the tracks - image should be symetrical and include alpha channel.
+	Input: renderObject whose tread bones define the track spacing.
+		   settings from the owner's TrackMarks* INI fields (tread width, spacing, segment length, tiling...).
+		   texture to use for the tracks - must include alpha channel.
 */
 //=============================================================================
-TerrainTracksRenderObjClass *TerrainTracksRenderObjClassSystem::bindTrack( RenderObjClass *renderObject, Real length, const Char *texturename)
+TerrainTracksRenderObjClass *TerrainTracksRenderObjClassSystem::bindTrack( RenderObjClass *renderObject, const TerrainTrackSettings &settings, const Char *texturename)
 {
 	TerrainTracksRenderObjClass *mod;
 
@@ -488,7 +581,9 @@ TerrainTracksRenderObjClass *TerrainTracksRenderObjClassSystem::bindTrack( Rende
 			m_usedModules->m_prevSystem = mod;
 		m_usedModules = mod;
 
-		mod->init(computeTrackSpacing(renderObject),length,texturename);
+		Real boneSpacing = 0.0f;
+		const Bool haveBones = computeTreadBoneSpacing(renderObject, settings, &boneSpacing);
+		mod->init(settings, boneSpacing, haveBones, texturename);
 		mod->m_bound=true;
 		m_TerrainTracksScene->Add_Render_Object( mod);
 	}
@@ -544,6 +639,37 @@ void TerrainTracksRenderObjClassSystem::releaseTrack( TerrainTracksRenderObjClas
 }
 
 //=============================================================================
+// clampTrackEdgeCount
+//=============================================================================
+/** GeneralsMod @feature Dimitar 29/09/2026: keep the per-track edge count inside the fixed m_edges[] array and keep the
+		shared vertex buffer (MaxTerrainTracks * edges * TRACK_VERTS_PER_EDGE vertices) inside what
+		16-bit indices can address. */
+//=============================================================================
+static Int clampTrackEdgeCount(Int requested)
+{
+	Int numModules = TheGlobalData->m_maxTerrainTracks;
+	if (numModules < 1)
+		numModules = 1;
+
+	const Int maxByBuffer = 65534 / (numModules * TRACK_VERTS_PER_EDGE);
+	Int edges = requested;
+
+	if (edges > MAX_TRACK_EDGE_COUNT)
+		edges = MAX_TRACK_EDGE_COUNT;
+
+	if (edges > maxByBuffer)
+	{
+		DEBUG_LOG(("TerrainTracks: MaxTankTrackEdges %d too high for MaxTerrainTracks %d, clamped to %d", requested, numModules, maxByBuffer));
+		edges = maxByBuffer;
+	}
+
+	if (edges < 2)
+		edges = 2;
+
+	return edges;
+}
+
+//=============================================================================
 // TerrainTracksRenderObjClassSystem::TerrainTracksRenderObjClassSystem
 //=============================================================================
 /** Constructor. Just nulls out some variables. */
@@ -558,7 +684,7 @@ TerrainTracksRenderObjClassSystem::TerrainTracksRenderObjClassSystem()
 	m_vertexMaterialClass = nullptr;
 	m_vertexBuffer = nullptr;
 
-	m_maxTankTrackEdges=TheGlobalData->m_maxTankTrackEdges;
+	m_maxTankTrackEdges=clampTrackEdgeCount(TheGlobalData->m_maxTankTrackEdges);
 	m_maxTankTrackOpaqueEdges=TheGlobalData->m_maxTankTrackOpaqueEdges;
 	m_maxTankTrackFadeDelay=TheGlobalData->m_maxTankTrackFadeDelay;
 }
@@ -594,7 +720,8 @@ void TerrainTracksRenderObjClassSystem::ReAcquireResources()
 	REF_PTR_RELEASE(m_vertexBuffer);
 
 	//Create static index buffers.  These will index the vertex buffers holding the track segments
-	m_indexBuffer=NEW_REF(DX8IndexBufferClass,((m_maxTankTrackEdges-1)*6));
+	// GeneralsMod @feature Dimitar 29/09/2026: 2 strips (left/right tread) per segment, 2 triangles each = 12 indices per segment.
+	m_indexBuffer=NEW_REF(DX8IndexBufferClass,((m_maxTankTrackEdges-1)*12));
 
 	// Fill up the IB
 	{
@@ -603,17 +730,22 @@ void TerrainTracksRenderObjClassSystem::ReAcquireResources()
 
 		for (i=0; i<(m_maxTankTrackEdges-1); i++)
 		{
-			ib[3]=ib[0]=i*2;
-			ib[1]=i*2+1;
-			ib[4]=ib[2]=(i+1)*2+1;
-			ib[5]=(i+1)*2;
-			ib+=6;	//skip the 6 indices we just filled
+			for (Int strip=0; strip<2; strip++)
+			{
+				const Int a = i*TRACK_VERTS_PER_EDGE + strip*2;			//this edge, strip's left vertex
+				const Int b = (i+1)*TRACK_VERTS_PER_EDGE + strip*2;	//next edge, strip's left vertex
+				ib[3]=ib[0]=a;
+				ib[1]=a+1;
+				ib[4]=ib[2]=b+1;
+				ib[5]=b;
+				ib+=6;	//skip the 6 indices we just filled
+			}
 		}
 	}
 
-	DEBUG_ASSERTCRASH(numModules*m_maxTankTrackEdges*2 < 65535, ("Too many terrain track edges"));
+	DEBUG_ASSERTCRASH(numModules*m_maxTankTrackEdges*TRACK_VERTS_PER_EDGE < 65535, ("Too many terrain track edges"));
 
-	m_vertexBuffer=NEW_REF(DX8VertexBufferClass,(DX8_FVF_XYZDUV1,numModules*m_maxTankTrackEdges*2,DX8VertexBufferClass::USAGE_DYNAMIC));
+	m_vertexBuffer=NEW_REF(DX8VertexBufferClass,(DX8_FVF_XYZDUV1,numModules*m_maxTankTrackEdges*TRACK_VERTS_PER_EDGE,DX8VertexBufferClass::USAGE_DYNAMIC));
 }
 
 //=============================================================================
@@ -855,29 +987,21 @@ Try improving the fit to vertical surfaces like cliffs.
 
 					distanceFade *= mod->m_edges[index].alpha;	//adjust fade with distance from start of track
 
-					verts->x=endPoint->X;
-					verts->y=endPoint->Y;
-					verts->z=endPoint->Z;
-
-					verts->u1=endPointUV->X;
-					verts->v1=endPointUV->Y;
-
 					//fade the alpha channel with distance
-					verts->diffuse=diffuseLight | ( REAL_TO_INT(distanceFade*255.0f) <<24);
-					verts++;
+					const Int vertexDiffuse = diffuseLight | ( REAL_TO_INT(distanceFade*255.0f) <<24);
 
-					endPoint=&mod->m_edges[index].endPointPos[1];	//right endpoint
-					endPointUV=&mod->m_edges[index].endPointUV[1];
+					for (Int k=0; k<TRACK_VERTS_PER_EDGE; k++, endPoint++, endPointUV++)
+					{
+						verts->x=endPoint->X;
+						verts->y=endPoint->Y;
+						verts->z=endPoint->Z;
 
-					verts->x=endPoint->X;
-					verts->y=endPoint->Y;
-					verts->z=endPoint->Z;
+						verts->u1=endPointUV->X;
+						verts->v1=endPointUV->Y;			///@todo: Add diffuse lighting.
 
-					verts->u1=endPointUV->X;
-					verts->v1=endPointUV->Y;			///@todo: Add diffuse lighting.
-
-					verts->diffuse=diffuseLight | ( REAL_TO_INT(distanceFade*255.0f) <<24);
-					verts++;
+						verts->diffuse=vertexDiffuse;
+						verts++;
+					}
 				}
 			}
 			mod = mod->m_nextSystem;
@@ -902,9 +1026,9 @@ Try improving the fit to vertical surfaces like cliffs.
 			{
 				DX8Wrapper::Set_Texture(0,mod->m_stageZeroTexture);
 				DX8Wrapper::Set_Index_Buffer_Index_Offset(trackStartIndex);
-				DX8Wrapper::Draw_Triangles(	0,(mod->m_activeEdgeCount-1)*2, 0, mod->m_activeEdgeCount*2);
+				DX8Wrapper::Draw_Triangles(	0,(mod->m_activeEdgeCount-1)*4, 0, mod->m_activeEdgeCount*TRACK_VERTS_PER_EDGE);
 
-				trackStartIndex += mod->m_activeEdgeCount*2;
+				trackStartIndex += mod->m_activeEdgeCount*TRACK_VERTS_PER_EDGE;
 			}
 			mod=mod->m_nextSystem;
 		}
@@ -962,7 +1086,7 @@ void TerrainTracksRenderObjClassSystem::setDetail()
 	clearTracks();
 	ReleaseResources();
 
-	m_maxTankTrackEdges=TheGlobalData->m_maxTankTrackEdges;
+	m_maxTankTrackEdges=clampTrackEdgeCount(TheGlobalData->m_maxTankTrackEdges);
 	m_maxTankTrackOpaqueEdges=TheGlobalData->m_maxTankTrackOpaqueEdges;
 	m_maxTankTrackFadeDelay=TheGlobalData->m_maxTankTrackFadeDelay;
 

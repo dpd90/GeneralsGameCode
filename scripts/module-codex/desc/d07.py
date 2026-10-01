@@ -15,7 +15,15 @@ F.update({
 'W3DModelDrawModuleData.ConditionState': ("Begins a ConditionState sub-block for a set of model condition flags, e.g. 'ConditionState = DAMAGED'. See sub-block fields.", "(sub-block)"),
 'W3DModelDrawModuleData.AliasConditionState': ("Makes another set of condition flags reuse the previous ConditionState block, e.g. 'AliasConditionState = DAMAGED MOVING'.", "REALLYDAMAGED"),
 'W3DModelDrawModuleData.TransitionState': ("Begins a TransitionState sub-block played when switching between two states with the given TransitionKeys: 'TransitionState = keyA keyB'.", "(sub-block)"),
-'W3DModelDrawModuleData.TrackMarks': ("Texture of tread/tyre marks left on the ground.", "EXTireTrack.tga"),
+'W3DModelDrawModuleData.TrackMarks': ("Texture of tread/tyre marks left on the ground. Enables track marks for this unit. Total width comes from the distance between the TREADFX01/TREADFX02 bones (+4 in the vanilla look), or 14 if the bones are missing. See the TrackMarks* fields below for the mod's split-tread options.", "EXTireTrack.tga"),
+'W3DModelDrawModuleData.TrackMarksTreadWidth': ("GeneralsMod. Width of ONE tread strip in world units. 0 (default) keeps the vanilla look: one quad stretched across the whole vehicle. Above 0 switches to split mode: two tread-width strips centred on each tread, with nothing drawn in between (less alpha overdraw on wide vehicles).", "6.0"),
+'W3DModelDrawModuleData.TrackMarksTreadSpacing': ("GeneralsMod, split mode. Centre-to-centre distance between the left and right tread. 0 (default) measures it from the tread bones (TrackMarksLeftBone/TrackMarksRightBone), falling back to 10 if they are missing.", "22.0"),
+'W3DModelDrawModuleData.TrackMarksTextureLayout': ("GeneralsMod, split mode. How the texture is shared between the strips. WIDE (default): classic full-width texture, each strip samples only its outer band, so stock textures keep working. SHARED: both strips use the whole image. MIRRORED: both use the whole image, right strip flipped so U=0 is the outer edge on both sides. ATLAS: left tread in the left half of the image (U 0-0.5), right tread in the right half (U 0.5-1). Left/right follow the chassis, so they stay correct when reversing.", "ATLAS"),
+'W3DModelDrawModuleData.TrackMarksTileLength': ("GeneralsMod. How many world units along the ground one copy of the texture covers before it repeats (image top-to-bottom = along the track). 0 (default) = vanilla: one copy per segment (TrackMarksSegmentLength, 10), flipped upside down every other segment, so the texture must be vertically symmetric. Above 0 = the texture is laid continuously by distance travelled, restarting from the top every TileLength units with no flipping, so directional patterns (chevrons, links) work. Independent of SegmentLength (one copy can span several segments or repeat inside one). For square pixels: TileLength = TreadWidth x (texture height px / pixel width of one tread in the image), e.g. 256x256 ATLAS (128 px per tread) with TreadWidth 7 gives 14. Distance is measured at the track centre, so on tight turns the outer strip's pattern stretches slightly and the inner one compresses.", "14.0"),
+'W3DModelDrawModuleData.TrackMarksSegmentLength': ("GeneralsMod. Distance travelled between track edges. Default 10. Shorter = smoother curves but a shorter visible trail, since each track holds a fixed number of edges (MaxTankTrackEdges).", "10.0"),
+'W3DModelDrawModuleData.TrackMarksFollowTerrain': ("GeneralsMod, split mode only. If Yes (default), every strip vertex samples the terrain height at its own position instead of using the track centre height, so wide vehicles' marks sit on slopes and bumps. Ignored on bridges.", "Yes"),
+'W3DModelDrawModuleData.TrackMarksLeftBone': ("GeneralsMod. Bone on the left tread used to measure tread spacing. Default TREADFX01.", "TREADFX01"),
+'W3DModelDrawModuleData.TrackMarksRightBone': ("GeneralsMod. Bone on the right tread used to measure tread spacing. Default TREADFX02.", "TREADFX02"),
 'W3DModelDrawModuleData.ExtraPublicBone': ("Additional bone names made public (accessible by other systems, e.g. FX/weapons). Repeatable.", "Flare01"),
 'W3DModelDrawModuleData.AttachToBoneInAnotherModule': ("Draw this module's model attached to a bone of another draw module on the same object.", "Turret01"),
 'W3DModelDrawModuleData.IgnoreConditionStates': ("Model condition flags this draw module ignores when choosing a state.", "PREATTACK_A"),
@@ -128,6 +136,8 @@ M['W3DTankDraw'] = dict(
  ex="""Draw = W3DTankDraw ModuleTag_Draw
   OkToChangeModelColor = Yes
   TrackMarks           = EXTankTrack.tga
+  TrackMarksTreadWidth = 6.0
+  TrackMarksTextureLayout = WIDE
   TreadAnimationRate   = 2.0
   TreadDebrisLeft      = TrackDebrisDirtLeft
   TreadDebrisRight     = TrackDebrisDirtRight

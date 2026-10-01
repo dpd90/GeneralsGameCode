@@ -359,6 +359,20 @@ void OverlordContainV2::onContaining( Object *obj, Bool wasSelected )
 	{
 		TransportContain::onContaining( obj, wasSelected );
 
+		// GeneralsMod @bugfix Dimitar 29/09/2026: onBodyDamageStateChange() only syncs riders when MY
+		// state changes, so a rider loaded into an already DAMAGED/REALLYDAMAGED Overlord stayed pristine
+		// (pristine model, no TransitionDamageFX) until my next state change. Sync it now, with the same
+		// no-RUBBLE rule. setDamageState() -> internalChangeHealth() -> evaluateVisualCondition() swaps the
+		// model; ContainedTransitionDamageFXV2 picks the change up on its next poll.
+		BodyModuleInterface *myBody = getObject()->getBodyModule();
+		BodyModuleInterface *riderBody = obj->getBodyModule();
+		if( myBody && riderBody )
+		{
+			BodyDamageType myState = myBody->getDamageState();
+			if( myState != BODY_RUBBLE && riderBody->getDamageState() != myState )
+				riderBody->setDamageState( myState );
+		}
+
 
     if ( obj->isKindOf( KINDOF_PORTABLE_STRUCTURE ) )
     {

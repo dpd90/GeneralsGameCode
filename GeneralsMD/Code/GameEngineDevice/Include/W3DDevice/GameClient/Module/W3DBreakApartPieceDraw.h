@@ -23,15 +23,24 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // FILE: W3DBreakApartPieceDraw.h ///////////////////////////////////////////////////////////////
-// GeneralsMod @feature Dimitar 19/09/2026
-// Desc: Draw module for a BreakApartDeathBehaviorV2 debris piece. Deliberately carries NO INI
-//       fields of its own (MAKE_STANDARD_MODULE_MACRO, not _WITH_MODULE_DATA -- same shape as
-//       W3DDebrisDraw) -- every instance starts with nothing loaded, and is told, exactly once,
-//       right after the Object it belongs to is spawned, which single subobject of which
-//       reference model to display, via DrawModule::setBreakApartPiece() (see Common/DrawModule.h
-//       for why that hand-off is a non-pure virtual on the shared DrawModule base rather than a
-//       dedicated interface: BreakApartDeathBehaviorV2.cpp, the caller, is a z_gameengine file and
-//       must never #include anything from this class's own GameEngineDevice header).
+// GeneralsMod @feature Dimitar 19/09/2026, gained a real ModuleData 01/10/2026
+// Desc: Draw module for a BreakApartDeathBehaviorV2 debris piece. Every instance starts with
+//       nothing loaded, and is told, exactly once, right after the Object it belongs to is
+//       spawned, which single subobject of which reference model to display, via DrawModule::
+//       setBreakApartPiece() (see Common/DrawModule.h for why that hand-off is a non-pure virtual
+//       on the shared DrawModule base rather than a dedicated interface: BreakApartDeathBehaviorV2.cpp,
+//       the caller, is a z_gameengine file and must never #include anything from this class's own
+//       GameEngineDevice header).
+//
+//       GeneralsMod @fix Dimitar 01/10/2026: this module originally carried NO ModuleData at all
+//       (MAKE_STANDARD_MODULE_MACRO, not _WITH_MODULE_DATA -- same shape W3DDebrisDraw still uses).
+//       That meant it inherited Module::friend_newModuleData()'s default, which parses every
+//       instance's INI block against a raw nullptr FieldParse table -- so ANY field placed inside a
+//       `Draw = W3DBreakApartPieceDraw ModuleTag_X ... End` block crashed instantly
+//       (INI::findFieldParse() dereferences parseTable->token, and parseTable was nullptr), not
+//       just an unrecognized one. Gained a real W3DBreakApartPieceDrawModuleData below, with
+//       exactly one field so far (ParticleSystem) -- fixes that crash for good, not just for this
+//       one field.
 //
 //       GeneralsMD-only: registered in the SHARED Core/GameEngineDevice/.../W3DModuleFactory.cpp
 //       under an #if RTS_ZEROHOUR guard (see that file), same as W3DPersistentAnimModelDraw/
@@ -44,6 +53,7 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "Common/GameType.h"
 #include "Common/DrawModule.h"
+#include "GameClient/ParticleSys.h"	///< GeneralsMod @feature Dimitar 01/10/2026: ParticleSystemID/ParticleSystemTemplate/TheParticleSystemManager for the new ParticleSystem field below
 #include "WWMath/matrix3d.h"	///< GeneralsMod @feature Dimitar 19/09/2026: need the full Matrix3D type (not just DrawModule.h's forward declare) for the m_pieceOffset member below
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
@@ -52,11 +62,38 @@ class RenderObjClass;
 class Shadow;
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 01/10/2026: this module's own ModuleData -- currently just the one
+// ParticleSystem field. boneName/particleSystemTemplate follow the exact same two-token INI shape
+// as W3DModelDraw's own ParticleSysBone field (`<BoneName> <TemplateName>`, see parseParticleSysBone
+// in W3DModelDraw.cpp) for consistency with the rest of this engine, with one deliberate difference:
+// since this module only ever shows ONE resolved bone/subobject at a time (unlike W3DModelDraw,
+// which can have many ParticleSysBone entries across a whole visible model), "None" as the bone name
+// (case-insensitive, also what an unresolved/misspelled bone name degrades to) means "don't tie this
+// to any specific bone -- attach it at the piece's own root" instead of being an error, which is
+// also exactly what the field looks like when written as `ParticleSystem = None <TemplateName>`.
+class W3DBreakApartPieceDrawModuleData : public ModuleData
+{
+public:
+
+	AsciiString							m_particleSystemBoneName;		///< lowered; empty or "none" means attach at the piece's own root, not a specific bone
+	const ParticleSystemTemplate*	m_particleSystemTemplate;	///< nullptr (the default) disables the whole feature -- no particle system is ever created
+
+	W3DBreakApartPieceDrawModuleData()
+	{
+		m_particleSystemTemplate = nullptr;
+	}
+	virtual ~W3DBreakApartPieceDrawModuleData() { }
+
+	static void buildFieldParse(MultiIniFieldParse& p);
+
+};
+
+//-------------------------------------------------------------------------------------------------
 class W3DBreakApartPieceDraw : public DrawModule
 {
 
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE( W3DBreakApartPieceDraw, "W3DBreakApartPieceDraw" )
-	MAKE_STANDARD_MODULE_MACRO( W3DBreakApartPieceDraw )
+	MAKE_STANDARD_MODULE_MACRO_WITH_MODULE_DATA( W3DBreakApartPieceDraw, W3DBreakApartPieceDrawModuleData )
 
 public:
 
@@ -102,5 +139,20 @@ private:
 	// alignment established at spawn time (including any turret/pitch rotation captured then)
 	// survives the piece being subsequently flung/tumbled by PhysicsBehavior.
 	Matrix3D									m_pieceOffset;
+
+	// GeneralsMod @feature Dimitar 01/10/2026: tracks the ParticleSystem created from this module's
+	// own ParticleSystem field (see W3DBreakApartPieceDrawModuleData above), if any -- INVALID_PARTICLE_SYSTEM_ID
+	// when the field wasn't configured, or the particle system failed to create. Needed so the
+	// destructor can explicitly destroy() it -- unlike W3DModelDraw (which tracks a whole vector of
+	// these and destroys them on ConditionState transitions), this module's piece never changes
+	// state after spawn, so its only cleanup moment is its own destruction.
+	ParticleSystemID					m_particleSystemID;
+
+	// GeneralsMod @feature Dimitar 01/10/2026: shared by setBreakApartPiece()/setBreakApartRemainder()
+	// -- both are this module's one-shot "now show something" entry points, and either one should
+	// pick up the configured ParticleSystem field the same way. Reads getW3DBreakApartPieceDrawModuleData()
+	// and m_renderObject directly (both must already be set by the time this runs); no-op if the
+	// module data's own template is nullptr (the field was never set in INI).
+	void attachConfiguredParticleSystem();
 
 };

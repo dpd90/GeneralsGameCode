@@ -1053,6 +1053,13 @@ W3DModelDrawModuleData::W3DModelDrawModuleData() :
 
   m_receivesDynamicLights = TRUE;
 
+	m_trackTreadWidth = 0.0f;
+	m_trackTreadSpacing = 0.0f;
+	m_trackSegmentLength = 0.0f;
+	m_trackTileLength = 0.0f;
+	m_trackTextureLayout = TRACK_TEXTURE_WIDE;
+	m_trackFollowTerrain = TRUE;
+
 	// m_ignoreConditionStates defaults to all zero, which is what we want
 }
 
@@ -1204,6 +1211,18 @@ static void parseAsciiStringLC( INI* ini, void * /*instance*/, void *store, cons
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 29/09/2026: names for TrackMarksTextureLayout, must match TerrainTrackTextureLayout order.
+static const char* const TheTrackTextureLayoutNames[] =
+{
+	"WIDE",
+	"SHARED",
+	"MIRRORED",
+	"ATLAS",
+	nullptr
+};
+static_assert(ARRAY_SIZE(TheTrackTextureLayoutNames) == TRACK_TEXTURE_LAYOUT_COUNT + 1, "Incorrect array size");
+
+//-------------------------------------------------------------------------------------------------
 void W3DModelDrawModuleData::buildFieldParse(MultiIniFieldParse& p)
 {
   ModuleData::buildFieldParse(p);
@@ -1224,6 +1243,14 @@ void W3DModelDrawModuleData::buildFieldParse(MultiIniFieldParse& p)
 		{ "AliasConditionState", W3DModelDrawModuleData::parseConditionState, (void*)PARSE_ALIAS, 0 },
 		{ "TransitionState", W3DModelDrawModuleData::parseConditionState, (void*)PARSE_TRANSITION, 0 },
 		{ "TrackMarks", parseAsciiStringLC, nullptr, offsetof(W3DModelDrawModuleData, m_trackFile) },
+		{ "TrackMarksTreadWidth", INI::parseReal, nullptr, offsetof(W3DModelDrawModuleData, m_trackTreadWidth) },
+		{ "TrackMarksTreadSpacing", INI::parseReal, nullptr, offsetof(W3DModelDrawModuleData, m_trackTreadSpacing) },
+		{ "TrackMarksSegmentLength", INI::parseReal, nullptr, offsetof(W3DModelDrawModuleData, m_trackSegmentLength) },
+		{ "TrackMarksTileLength", INI::parseReal, nullptr, offsetof(W3DModelDrawModuleData, m_trackTileLength) },
+		{ "TrackMarksTextureLayout", INI::parseIndexList, TheTrackTextureLayoutNames, offsetof(W3DModelDrawModuleData, m_trackTextureLayout) },
+		{ "TrackMarksFollowTerrain", INI::parseBool, nullptr, offsetof(W3DModelDrawModuleData, m_trackFollowTerrain) },
+		{ "TrackMarksLeftBone", INI::parseAsciiString, nullptr, offsetof(W3DModelDrawModuleData, m_trackLeftBone) },
+		{ "TrackMarksRightBone", INI::parseAsciiString, nullptr, offsetof(W3DModelDrawModuleData, m_trackRightBone) },
 		{ "ExtraPublicBone", INI::parseAsciiStringVectorAppend, nullptr, offsetof(W3DModelDrawModuleData, m_extraPublicBones) },
 		{ "AttachToBoneInAnotherModule", parseAsciiStringLC, nullptr, offsetof(W3DModelDrawModuleData, m_attachToDrawableBone) },
 		{ "IgnoreConditionStates", ModelConditionFlags::parseFromINI, nullptr, offsetof(W3DModelDrawModuleData, m_ignoreConditionStates) },
@@ -3114,7 +3141,18 @@ void W3DModelDraw::setModelState(const ModelConditionInfo* newState)
 				TheTerrainTracksRenderObjClassSystem != nullptr &&
 				!getW3DModelDrawModuleData()->m_trackFile.isEmpty())
 		{
-			m_trackRenderObject = TheTerrainTracksRenderObjClassSystem->bindTrack(m_renderObject, 1.0f*MAP_XY_FACTOR, getW3DModelDrawModuleData()->m_trackFile.str());
+			// GeneralsMod @feature Dimitar 29/09/2026: pass the TrackMarks* settings through to the track system
+			const W3DModelDrawModuleData *trackData = getW3DModelDrawModuleData();
+			TerrainTrackSettings trackSettings;
+			trackSettings.treadWidth = trackData->m_trackTreadWidth;
+			trackSettings.treadSpacing = trackData->m_trackTreadSpacing;
+			trackSettings.segmentLength = trackData->m_trackSegmentLength;
+			trackSettings.tileLength = trackData->m_trackTileLength;
+			trackSettings.textureLayout = trackData->m_trackTextureLayout;
+			trackSettings.followTerrain = trackData->m_trackFollowTerrain;
+			trackSettings.leftBone = trackData->m_trackLeftBone.str();
+			trackSettings.rightBone = trackData->m_trackRightBone.str();
+			m_trackRenderObject = TheTerrainTracksRenderObjClassSystem->bindTrack(m_renderObject, trackSettings, trackData->m_trackFile.str());
 			if (draw && m_trackRenderObject)
 				m_trackRenderObject->setOwnerDrawable(draw);
 		}

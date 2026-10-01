@@ -49,12 +49,28 @@ W3DBreakApartPieceDraw::W3DBreakApartPieceDraw(Thing *thing, const ModuleData* m
 {
 	m_renderObject = nullptr;
 	m_pieceOffset.Make_Identity();
+	m_particleSystemID = INVALID_PARTICLE_SYSTEM_ID;
 }
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
 W3DBreakApartPieceDraw::~W3DBreakApartPieceDraw()
 {
+	// GeneralsMod @feature Dimitar 01/10/2026: explicitly destroy() the particle system this
+	// instance created (if any) via attachConfiguredParticleSystem() -- otherwise it would keep
+	// emitting/attached-nowhere indefinitely once this Drawable/DrawModule goes away, since nothing
+	// else in the engine tracks or cleans up a particle system this module itself created.
+	if (m_particleSystemID != INVALID_PARTICLE_SYSTEM_ID)
+	{
+		if (TheParticleSystemManager != nullptr)
+		{
+			ParticleSystem* sys = TheParticleSystemManager->findParticleSystem(m_particleSystemID);
+			if (sys != nullptr)
+				sys->destroy();
+		}
+		m_particleSystemID = INVALID_PARTICLE_SYSTEM_ID;
+	}
+
 	if (m_renderObject)
 	{
 		if (W3DDisplay::m_3DScene != nullptr)
@@ -62,6 +78,36 @@ W3DBreakApartPieceDraw::~W3DBreakApartPieceDraw()
 		REF_PTR_RELEASE(m_renderObject);
 		m_renderObject = nullptr;
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 01/10/2026: custom two-token parser (bone name, then particle system
+// template name) -- same shape as W3DModelDraw.cpp's own parseParticleSysBone(), which this mirrors
+// deliberately for consistency, except it writes directly into this module's own two named fields
+// rather than pushing onto a per-ConditionState vector (this module only ever has one active piece,
+// so one field pair is enough). ini->parseParticleSystemTemplate() (INI.cpp) reads the SECOND token
+// itself and DEBUG_ASSERTCRASH()s (does not hard-fail) if it's neither a real template name nor the
+// literal "None".
+//-------------------------------------------------------------------------------------------------
+static void parseBreakApartParticleSystem(INI* ini, void* instance, void* /*store*/, const void* /*userData*/)
+{
+	W3DBreakApartPieceDrawModuleData* self = (W3DBreakApartPieceDrawModuleData*)instance;
+	self->m_particleSystemBoneName = ini->getNextAsciiString();
+	self->m_particleSystemBoneName.toLower();
+	ini->parseParticleSystemTemplate(ini, instance, &(self->m_particleSystemTemplate), nullptr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/*static*/ void W3DBreakApartPieceDrawModuleData::buildFieldParse(MultiIniFieldParse& p)
+{
+	ModuleData::buildFieldParse(p);
+
+	static const FieldParse dataFieldParse[] =
+	{
+		{ "ParticleSystem", parseBreakApartParticleSystem, nullptr, 0 },
+		{ nullptr, nullptr, nullptr, 0 }
+	};
+	p.add(dataFieldParse);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -211,6 +257,8 @@ void W3DBreakApartPieceDraw::setBreakApartPiece(const AsciiString& modelName, co
 			REF_PTR_RELEASE(sub);
 		}
 	}
+
+	attachConfiguredParticleSystem();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -270,6 +318,77 @@ void W3DBreakApartPieceDraw::setBreakApartRemainder(const AsciiString& modelName
 			REF_PTR_RELEASE(sub);
 		}
 	}
+
+	attachConfiguredParticleSystem();
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 01/10/2026: creates and bone-attaches this instance's configured
+// ParticleSystem (W3DBreakApartPieceDrawModuleData::m_particleSystemTemplate/m_particleSystemBoneName),
+// if any -- shared by setBreakApartPiece()/setBreakApartRemainder() above, called once each, right
+// after m_renderObject is fully set up (clone created, transform placed, subobjects hidden/shown) so
+// Get_Bone_Index()/Get_Bone_Transform() below see the FINAL clone state. No-op if the field was never
+// set in INI (m_particleSystemTemplate == nullptr, the ModuleData's own default) or
+// TheParticleSystemManager isn't up yet.
+//
+// Position/orientation logic mirrors W3DModelDraw::recalcBonesForClientParticleSystems() (its own
+// "ugh... kill the mtx so we get it in modelspace, not world space" comment, W3DModelDraw.cpp) --
+// temporarily force m_renderObject to identity so Get_Bone_Transform() returns the bone's LOCAL
+// (piece-relative) position/rotation rather than wherever this piece currently sits in the world,
+// then restore the real transform immediately after reading it. sys->attachToDrawable(getDrawable())
+// is what then keeps the particle system following this piece every frame (world placement handled
+// entirely by the particle system's own attachment, not by anything in doDrawModule()/
+// reactToTransformChange() above) -- so it rides along through landing and tumbling exactly like the
+// render clone itself does via m_pieceOffset.
+//
+// "None" (or an unresolved bone name -- misspelled, or genuinely absent on this particular piece,
+// e.g. a BreakApartModel bone with no matching name in THIS piece's own subtree) means "no specific
+// bone" -- the particle system is left at local (0,0,0)/no extra rotation, i.e. attached at the
+// piece's own root (which, since the 23/09/2026 recentering fix, is roughly this piece's own visual
+// center already -- a reasonable default for "just put smoke somewhere on this piece").
+//-------------------------------------------------------------------------------------------------
+void W3DBreakApartPieceDraw::attachConfiguredParticleSystem()
+{
+	if (m_renderObject == nullptr || TheParticleSystemManager == nullptr)
+		return;
+
+	const W3DBreakApartPieceDrawModuleData* modData = getW3DBreakApartPieceDrawModuleData();
+	if (modData == nullptr || modData->m_particleSystemTemplate == nullptr)
+		return;
+
+	ParticleSystem* sys = TheParticleSystemManager->createParticleSystem(modData->m_particleSystemTemplate);
+	if (sys == nullptr)
+		return;
+
+	Coord3D pos = { 0.0f, 0.0f, 0.0f };
+	Real rotationZ = 0.0f;
+
+	Bool wantsBone = !modData->m_particleSystemBoneName.isEmpty() && modData->m_particleSystemBoneName.compareNoCase("none") != 0;
+	const HTreeClass* htree = m_renderObject->Get_HTree();
+	int boneIndex = (wantsBone && htree != nullptr) ? htree->Get_Bone_Index(modData->m_particleSystemBoneName.str()) : 0;
+	if (wantsBone && boneIndex != 0)
+	{
+		Matrix3D savedXform = m_renderObject->Get_Transform();
+		Matrix3D identityXform(true);
+		m_renderObject->Set_Transform(identityXform);
+
+		const Matrix3D& boneXform = m_renderObject->Get_Bone_Transform(boneIndex);
+		Vector3 vpos = boneXform.Get_Translation();
+		rotationZ = boneXform.Get_Z_Rotation();
+
+		m_renderObject->Set_Transform(savedXform);
+
+		pos.x = vpos.X;
+		pos.y = vpos.Y;
+		pos.z = vpos.Z;
+	}
+
+	sys->setPosition(&pos);
+	sys->rotateLocalTransformZ(rotationZ);
+	sys->attachToDrawable(getDrawable());
+	sys->setSaveable(FALSE);	///< re-created fresh on load, same as W3DModelDraw's own bone-attached particle systems
+
+	m_particleSystemID = sys->getSystemID();
 }
 
 //-------------------------------------------------------------------------------------------------

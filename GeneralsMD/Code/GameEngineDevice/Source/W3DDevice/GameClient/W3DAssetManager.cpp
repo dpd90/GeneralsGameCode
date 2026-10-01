@@ -886,7 +886,9 @@ int W3DAssetManager::Recolor_Asset(RenderObjClass *robj, const int color)
 	                                                              with white = no change, black = full color.
 	- Alpha blend pass  (src = SRC_ALPHA, dest = 1-SRC_ALPHA): ambient/diffuse = house color
 	                                                           -> lit paint, texture alpha = mask.
-	- Any other pass (e.g. the opaque base pass) is left untouched.
+	- Opaque or any other blend mode: recolored like an Add pass ONLY when the pass's own texture is
+	  HOUSEFX named (glow drawn underneath a base pass with alpha holes). Otherwise left untouched,
+	  as it's the base pass.
 	A vertex material that is also used by a pass of a different kind (e.g. shared with the base
 	pass because the exporter merged identical settings) is skipped.
 */
@@ -958,6 +960,19 @@ static HouseFxPassType getHouseFxPassType(const ShaderClass &shader)
 	if (src == ShaderClass::SRCBLEND_SRC_ALPHA && dst == ShaderClass::DSTBLEND_ONE_MINUS_SRC_ALPHA)
 		return HOUSEFX_PASS_LIT;		//alpha blended paint
 	return HOUSEFX_PASS_NONE;
+}
+
+/** Pass kind for HOUSEFX purposes. A pass whose own texture is HOUSEFX named is recolored whatever
+	its blend mode (e.g. an Opaque glow pass drawn underneath an alpha-tested base pass): any blend
+	mode that isn't Multiply / Alpha Blend then behaves like an Add pass (authored Emissive > 0 = glow,
+	Emissive 0 = lit color). Material/mesh name opt-in can't tell the passes of one material apart,
+	so for those, Opaque and other blend modes stay untouched (they are the base pass). */
+static HouseFxPassType resolveHouseFxPassType(const ShaderClass &shader, Bool passTextureIsHouseFx)
+{
+	const HouseFxPassType type = getHouseFxPassType(shader);
+	if (type == HOUSEFX_PASS_NONE && passTextureIsHouseFx)
+		return HOUSEFX_PASS_ADD;
+	return type;
 }
 
 struct HouseFxMaterialUse
@@ -1042,16 +1057,17 @@ static int recolorHouseFxPasses(MeshModelClass *model, Bool wholeMeshIsHouseFx, 
 
 		if (!shaderArray && !materialArray)
 		{
+			const Bool texFx = passUsesHouseFxTexture(model, pass, 0);
 			ok = addHouseFxMaterialUse(uses, useCount, model->Peek_Single_Material(pass),
-				getHouseFxPassType(model->Get_Single_Shader(pass)), passUsesHouseFxTexture(model, pass, 0));
+				resolveHouseFxPassType(model->Get_Single_Shader(pass), texFx), texFx);
 			continue;
 		}
 
 		//Multi-material mesh: shaders are per polygon, materials per vertex.
 		for (int p = 0; p < polyCount && ok; ++p)
 		{
-			const HouseFxPassType type = getHouseFxPassType(shaderArray ? model->Get_Shader(p, pass) : model->Get_Single_Shader(pass));
 			const Bool texFx = passUsesHouseFxTexture(model, pass, p);
+			const HouseFxPassType type = resolveHouseFxPassType(shaderArray ? model->Get_Shader(p, pass) : model->Get_Single_Shader(pass), texFx);
 			if (materialArray && polys != nullptr)
 			{
 				ok = addHouseFxMaterialUse(uses, useCount, model->Peek_Material(polys[p].I, pass), type, texFx)

@@ -292,6 +292,18 @@ public:
 	mutable TransitionMap							m_transitionMap;
 	std::vector<AsciiString>					m_extraPublicBones;
 	AsciiString												m_trackFile;						///< if present, leaves tracks using this texture
+	// GeneralsMod @feature Dimitar 29/09/2026: split tread marks. TrackMarksTreadWidth > 0 draws two
+	// separate tread-width strips (one per tread, nothing in between) instead of one quad across the whole
+	// vehicle, with configurable spacing, texture layout (WIDE/SHARED/MIRRORED/ATLAS), segment length,
+	// continuous texture tiling and per-vertex terrain following. Leaving it at 0 keeps the vanilla look.
+	AsciiString												m_trackLeftBone;				///< GeneralsMod: left tread bone (default TREADFX01)
+	AsciiString												m_trackRightBone;				///< GeneralsMod: right tread bone (default TREADFX02)
+	Real															m_trackTreadWidth;			///< GeneralsMod: width of one tread strip, 0 = legacy full-width track
+	Real															m_trackTreadSpacing;		///< GeneralsMod: tread centre-to-centre distance, 0 = from bones
+	Real															m_trackSegmentLength;		///< GeneralsMod: distance between track edges, 0 = default
+	Real															m_trackTileLength;			///< GeneralsMod: texture repeat length along the track, 0 = legacy ping-pong
+	Int																m_trackTextureLayout;		///< GeneralsMod: TerrainTrackTextureLayout
+	Bool															m_trackFollowTerrain;		///< GeneralsMod: per-vertex terrain height (split mode)
 	AsciiString												m_attachToDrawableBone;
 #ifdef CACHE_ATTACH_BONE
 	mutable Vector3										m_attachToDrawableBoneOffset;
