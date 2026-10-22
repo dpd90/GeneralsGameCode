@@ -145,6 +145,14 @@ public:
 	// for a full Lifetime. See SwitchStateV2.h's file comment for why this can't just reuse the
 	// button's toggle path.
 	virtual Bool notifyQualifyingDamage( const SpecialPowerTemplate *specialPowerTemplate ) override;
+
+	// GeneralsMod @feature Dimitar 02/10/2026: externally-driven explicit state, used by
+	// PointDefenseUpdateV2's SwitchStateTemplate link. Goes to exactly the requested state (no toggle),
+	// is a no-op if already there (so no duplicate In/Out effects), and always cancels any pending
+	// Lifetime revert -- the caller owns the state from then on, so leave Lifetime = 0 on a
+	// SwitchStateV2 driven this way. Don't also give it a manual button / damage trigger: those would
+	// move it behind the caller's back until the caller's next transition re-asserts its state.
+	virtual Bool forceSwitchState( const SpecialPowerTemplate *specialPowerTemplate, Bool goToAltered, Bool fireEffects ) override;
 	virtual Bool isSpecialAbility() const override { return false; } ///< IMPORTANT: this is not cosmetic -- returning true here makes the engine blind-cast this SpecialPowerUpdateInterface* to a SpecialAbilityUpdate* in several places (e.g. ControlBarCommand.cpp's per-frame command-button update, via Object::findSpecialAbilityUpdate()). SwitchStateV2 is not a SpecialAbilityUpdate subclass, so that cast is memory corruption.
 	virtual Bool isSpecialPower() const override { return false; }
 	virtual Bool isActive() const override { return false; }

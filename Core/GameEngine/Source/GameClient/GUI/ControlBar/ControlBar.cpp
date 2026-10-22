@@ -119,6 +119,7 @@ const FieldParse CommandButton::s_commandButtonFieldParseTable[] =
 	{ "ButtonBorderType",			INI::parseLookupList,				 CommandButtonMappedBorderTypeNames, offsetof( CommandButton, m_commandButtonBorder ) },
 	{ "RadiusCursorType",			INI::parseIndexList,				 TheRadiusCursorNames, offsetof( CommandButton, m_radiusCursor ) },
 	{ "UnitSpecificSound",		INI::parseAudioEventRTS,		 nullptr, offsetof( CommandButton, m_unitSpecificSound ) },
+	{ "MultiSelectPriority",	INI::parseInt,							 nullptr, offsetof( CommandButton, m_multiSelectPriority ) },	// GeneralsMod
 
 	{ nullptr,						nullptr,												 nullptr, 0 }
 
@@ -567,6 +568,7 @@ CommandButton::CommandButton()
 	m_upgradeTemplate = nullptr;
 	m_weaponSlot = PRIMARY_WEAPON;
 	m_maxShotsToFire = 0x7fffffff;	// huge number
+	m_multiSelectPriority = 0;
 	m_science.clear();
 	m_specialPower = nullptr;
 	m_buttonImage = nullptr;
@@ -737,6 +739,7 @@ const FieldParse CommandSet::m_commandSetFieldParseTable[] =
 	{ "16",			CommandSet::parseCommandButton, (void *)15,		offsetof( CommandSet, m_command ) },
 	{ "17",			CommandSet::parseCommandButton, (void *)16,		offsetof( CommandSet, m_command ) },
 	{ "18",			CommandSet::parseCommandButton, (void *)17,		offsetof( CommandSet, m_command ) },
+	{ "Priority",	INI::parseInt,									nullptr,			offsetof( CommandSet, m_priority ) },	// GeneralsMod: multi-select union ordering
 	{ nullptr,			nullptr,														 nullptr,				0	}
 
 };
@@ -838,10 +841,27 @@ void CommandSet::parseCommandButton( INI* ini, void *instance, void *store, cons
 //-------------------------------------------------------------------------------------------------
 CommandSet::CommandSet(const AsciiString& name) :
 	m_name(name),
+	m_priority(0),
 	m_next(nullptr)
 {
 	for( Int i = 0; i < MAX_COMMANDS_PER_SET; i++ )
 		m_command[ i ] = nullptr;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** GeneralsMod: does any slot of this set hold exactly this button (pointer compare, honours
+	* script control bar overrides through getCommandButton()) */
+//-------------------------------------------------------------------------------------------------
+Bool CommandSet::hasCommandButton( const CommandButton *button ) const
+{
+	if( button == nullptr )
+		return FALSE;
+
+	for( Int i = 0; i < MAX_COMMANDS_PER_SET; i++ )
+		if( getCommandButton( i ) == button )
+			return TRUE;
+
+	return FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -880,6 +900,12 @@ CommandSet::~CommandSet()
 ControlBar::ControlBar()
 {
 	Int i;
+	for( i = 0; i < MAX_RECENT_MULTI_BUILDERS; i++ )	// GeneralsMod
+	{
+		m_recentBuilderIDs[ i ] = INVALID_ID;
+		m_recentBuilderFrames[ i ] = 0;
+	}
+	m_nextRecentBuilder = 0;
 	m_commandButtons = nullptr;
 	m_commandSets = nullptr;
 	m_controlBarSchemeManager = nullptr;

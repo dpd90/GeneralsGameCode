@@ -127,6 +127,7 @@ public:
 	virtual ObjectID projectileGetLauncherID() const override { return m_launcherID; }
 	virtual void setFramesTillCountermeasureDiversionOccurs( UnsignedInt frames ) override; ///< Number of frames till missile diverts to countermeasures.
 	virtual void projectileNowJammed() override;///< We lose our Object target and scatter to the ground
+	virtual const WeaponTemplate* projectileGetDetonationWeapon() const override { return m_detonationWeaponTmpl; }	///< GeneralsMod 05/10/2026
 
 	virtual Bool processCollision(PhysicsBehavior *physics, Object *other) override; ///< Returns true if the physics collide should apply the force.  Normally not.  jba.
 

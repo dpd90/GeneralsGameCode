@@ -25,10 +25,11 @@
 //       repeatable field, and each statement appends one more row:
 //
 //   Behavior = RiderChangeContainV2 ModuleTag_Riders
-//     Rider = GLAInfantryRebel          RIDER1  WEAPON_RIDER1  STATUS_RIDER1  CommandSet_A  SET_NORMAL
-//     Rider = GLAInfantryRPGTrooper     RIDER2  WEAPON_RIDER2  STATUS_RIDER2  CommandSet_B  SET_NORMAL
+//     Rider = GLAInfantryRebel      RIDER1  WEAPON_RIDER1  ARMOR_RIDER1  STATUS_RIDER1  CommandSet_A  SET_NORMAL
+//     Rider = GLAInfantryRPGTrooper RIDER2  WEAPON_RIDER2  ARMOR_RIDER2  STATUS_RIDER2  CommandSet_B  SET_NORMAL
+//     Rider = GLAInfantryWorker     RIDER3  WEAPON_RIDER3                STATUS_RIDER3  CommandSet_C  SET_NORMAL  ; no armor change
 //     ...
-//     Rider = SomeOtherInfantry         RIDER32 WEAPON_RIDER32 STATUS_RIDER32 CommandSet_X  SET_NORMAL
+//     Rider = SomeOtherInfantry     RIDER32 WEAPON_RIDER32 ARMOR_RIDER32 STATUS_RIDER32 CommandSet_X  SET_NORMAL
 //     ScuttleDelay  = 1000
 //     ScuttleStatus = TOPPLED
 //     ScuttleOnDeath = Yes   ; No = KILL_PILOT kills only the rider; the vehicle stays alive, empty,
@@ -43,12 +44,17 @@
 //     ; ...plus every normal TransportContain field (Slots, ExitBone, etc.)
 //   End
 //
-//   Row format is identical to vanilla RiderN: template, model condition, weapon set flag,
-//   object status, command set override, locomotor set.
+//   Row format: template, model condition, weapon set flag, [armor set flag], object status,
+//   command set override, locomotor set. This is vanilla RiderN plus an OPTIONAL armor set flag in
+//   the same position SwitchStateV2 uses (right after the weapon set). Leave it out and the row is
+//   read exactly like a vanilla RiderN row, with no armor set change. The armor set flag is set on
+//   the vehicle's body while that rider is aboard and cleared when they leave, so the vehicle's
+//   ArmorSet { Conditions = ARMOR_RIDERn ... } block is used for that rider.
 //
 //   The number of rows is unlimited. The number of DISTINCT flags is not: the engine now has
-//   RIDER1..RIDER32 model conditions, WEAPON_RIDER1..WEAPON_RIDER32 weapon set flags and
-//   STATUS_RIDER1..STATUS_RIDER32 object statuses. Rows may share flags.
+//   RIDER1..RIDER32 model conditions, WEAPON_RIDER1..WEAPON_RIDER32 weapon set flags,
+//   ARMOR_RIDER1..ARMOR_RIDER32 armor set flags and STATUS_RIDER1..STATUS_RIDER32 object
+//   statuses. Rows may share flags.
 //
 //   Note: vanilla code gives STATUS_RIDER8 a hardcoded meaning (Chinook / AIStates use it as a
 //   "busy" marker), so avoid STATUS_RIDER8 on rider rows, exactly as with vanilla RiderChangeContain.
@@ -57,14 +63,24 @@
 #pragma once
 
 #include "GameLogic/Module/TransportContain.h"
-#include "GameLogic/Module/RiderChangeContain.h"	// RiderInfo + RiderChangeContainModuleData::parseRiderInfo
+#include "GameLogic/Module/RiderChangeContain.h"	// RiderInfo
+
+enum ArmorSetType CPP_11(: Int);
+
+//-------------------------------------------------------------------------------------------------
+/// A vanilla rider row plus an optional armor set flag (GeneralsMod 05/10/2026).
+struct RiderInfoV2 : public RiderInfo
+{
+	ArmorSetType	m_armorSetFlag;
+	Bool					m_hasArmorSet;		///< FALSE when the row has no armor set field: armor is left alone
+};
 
 //-------------------------------------------------------------------------------------------------
 class RiderChangeContainV2ModuleData : public TransportContainModuleData
 {
 public:
 
-	std::vector<RiderInfo>	m_riders;
+	std::vector<RiderInfoV2>	m_riders;
 	UnsignedInt							m_scuttleFrames;
 	ModelConditionFlagType	m_scuttleState;
 	Bool										m_scuttleOnDeath;		///< FALSE: KILL_PILOT only kills the rider; the vehicle survives empty and mobile

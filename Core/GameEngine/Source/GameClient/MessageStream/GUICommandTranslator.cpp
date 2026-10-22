@@ -145,6 +145,7 @@ static CommandStatus doFireWeaponCommand( const CommandButton *command, const IC
 			return COMMAND_COMPLETE;
 
 		// create the message and append arguments
+		TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod: only units owning this button fire
 		msg = TheMessageStream->appendMessage( GameMessage::MSG_DO_WEAPON_AT_LOCATION );
 		msg->appendIntegerArgument( command->getWeaponSlot() );
 		msg->appendLocationArgument( world );
@@ -174,6 +175,7 @@ static CommandStatus doFireWeaponCommand( const CommandButton *command, const IC
 		if( target )
 		{
 
+			TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod: only units owning this button fire
 			msg = TheMessageStream->appendMessage( GameMessage::MSG_DO_WEAPON_AT_OBJECT );
 			msg->appendIntegerArgument( command->getWeaponSlot() );
 			msg->appendObjectIDArgument( target->getID() );
@@ -184,6 +186,7 @@ static CommandStatus doFireWeaponCommand( const CommandButton *command, const IC
 	}
 	else
 	{
+		TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod: only units owning this button fire
 		msg = TheMessageStream->appendMessage( GameMessage::MSG_DO_WEAPON );
 		msg->appendIntegerArgument( command->getWeaponSlot() );
 		msg->appendIntegerArgument( command->getMaxShotsToFire() );
@@ -419,6 +422,7 @@ GameMessageDisposition GUICommandTranslator::translateGameMessage(const GameMess
 
 							if( TheTacticalView->screenToTerrain(&mouse, &worldPos) )
 							{
+								TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod
 								GameMessage *msg = TheMessageStream->appendMessage(GameMessage::MSG_EVACUATE);
 								msg->appendLocationArgument(worldPos);
 

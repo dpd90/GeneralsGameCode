@@ -196,6 +196,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	m_team(nullptr),
 	m_experienceTracker(nullptr),
 	m_firingTracker(nullptr),
+	m_hasShotFiredListeners(FALSE),
 	m_repulsorHelper(nullptr),
 	m_statusDamageHelper(nullptr),
 	m_tempWeaponBonusHelper(nullptr),
@@ -1508,6 +1509,7 @@ void Object::fireCurrentWeapon(Object *target)
 		DEBUG_ASSERTCRASH(m_firingTracker, ("hey, we are firing but have no firing tracker. this is wrong."));
 		if (m_firingTracker)
 			m_firingTracker->shotFired(weapon, target->getID());
+		notifyShotFiredListeners(weapon, target->getID());	// GeneralsMod @feature Dimitar 09/10/2026
 		if (reloaded)
 			releaseWeaponLock(LOCKED_TEMPORARILY);	// release any temporary locks.
 
@@ -1530,6 +1532,7 @@ void Object::fireCurrentWeapon(const Coord3D* pos)
 		DEBUG_ASSERTCRASH(m_firingTracker, ("hey, we are firing but have no firing tracker. this is wrong."));
 		if (m_firingTracker)
 			m_firingTracker->shotFired(weapon, INVALID_ID);
+		notifyShotFiredListeners(weapon, INVALID_ID);	// GeneralsMod @feature Dimitar 09/10/2026
 		if (reloaded)
 			releaseWeaponLock(LOCKED_TEMPORARILY);	// release any temporary locks.
 
@@ -1542,6 +1545,19 @@ void Object::notifyFiringTrackerShotFired( const Weapon* weaponFired, ObjectID v
 {
   if ( m_firingTracker )
     m_firingTracker->shotFired( weaponFired, victimID );
+  notifyShotFiredListeners( weaponFired, victimID );	// GeneralsMod @feature Dimitar 09/10/2026 (linked turrets)
+}
+
+//==============================================================================
+// GeneralsMod @feature Dimitar 09/10/2026: see Object::registerShotFiredListener()
+//==============================================================================
+void Object::notifyShotFiredListeners( const Weapon* weaponFired, ObjectID victimID )
+{
+	if( !m_hasShotFiredListeners || !weaponFired || !m_behaviors )
+		return;
+
+	for( BehaviorModule** m = m_behaviors; *m; ++m )
+		(*m)->onOwnerShotFired( weaponFired, victimID );
 }
 
 
@@ -4542,6 +4558,11 @@ void Object::giveUpgrade( const UpgradeTemplate *upgradeT )
 		// grant a new upgrade
 		//
 		updateUpgradeModules();
+
+		// GeneralsMod: a completed object upgrade may now be "spent" and drop out of the
+		// multi-select command union, so refresh the command bar if we're selected
+		if( TheControlBar && getDrawable() && getDrawable()->isSelected() )
+			TheControlBar->markUIDirty();
 	}
 }
 
@@ -4561,6 +4582,10 @@ void Object::removeUpgrade( const UpgradeTemplate *upgradeT )
 		// in the sense of undoing the effects.  It is just resetting the upgrade so it may be run again.
 		upgrade->resetUpgrade( upgradeT->getUpgradeMask() );
 	}
+
+	// GeneralsMod: the upgrade button may come back into the multi-select command union
+	if( TheControlBar && getDrawable() && getDrawable()->isSelected() )
+		TheControlBar->markUIDirty();
 }
 
 //-------------------------------------------------------------------------------------------------

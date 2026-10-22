@@ -94,6 +94,7 @@ public:
 	virtual ObjectID projectileGetLauncherID() const override { return m_launcherID; }
 	virtual void setFramesTillCountermeasureDiversionOccurs( UnsignedInt frames ) override {}
 	virtual void projectileNowJammed() override {}
+	virtual const WeaponTemplate* projectileGetDetonationWeapon() const override { return m_detonationWeaponTmpl; }	///< GeneralsMod 05/10/2026
 
 protected:
 

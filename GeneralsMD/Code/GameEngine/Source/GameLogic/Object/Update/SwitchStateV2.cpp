@@ -352,6 +352,50 @@ Bool SwitchStateV2::notifyQualifyingDamage( const SpecialPowerTemplate *specialP
 }
 
 // ------------------------------------------------------------------------------------------------
+/** GeneralsMod @feature Dimitar 02/10/2026: called by an external owner of this switch (currently
+	* PointDefenseUpdateV2's SwitchStateTemplate link) to put us into an explicit state. See the
+	* declaration comment in SwitchStateV2.h. */
+// ------------------------------------------------------------------------------------------------
+Bool SwitchStateV2::forceSwitchState( const SpecialPowerTemplate *specialPowerTemplate, Bool goToAltered, Bool fireEffects )
+{
+	const SwitchStateV2ModuleData *data = getSwitchStateV2ModuleData();
+
+	// Make sure this call is actually meant for us -- an object can have more than one special power.
+	if( specialPowerTemplate != data->m_specialPowerTemplate )
+		return FALSE;
+
+	// The caller owns our state now -- a leftover Lifetime revert would flip us behind its back.
+	// (If update() is still scheduled for the old revert frame, it just sees 0 and sleeps forever.)
+	m_revertFrame = 0;
+
+	goToAltered = goToAltered ? TRUE : FALSE;
+
+	// A real transition (fireEffects) into the state we're already in is a no-op -- no duplicate
+	// In/Out effects. But a silent sync (fireEffects == FALSE: the caller's initial sync at spawn, or
+	// a re-assert after load) must ALWAYS apply the state: SwitchStateV2 starts with m_isAltered ==
+	// FALSE without ever having applied DefaultState, so skipping here would leave DefaultState's
+	// model condition / weapon set / etc. never set until the first full cycle. applyState() is safe
+	// to repeat (it clears the other state's flags and re-sets ours).
+	if( fireEffects && m_isAltered == goToAltered )
+		return TRUE;
+
+	Bool changed = ( m_isAltered != goToAltered );
+	applyState( goToAltered );
+	if( !changed )
+		return TRUE;
+
+	if( fireEffects )
+	{
+		if( goToAltered )
+			fireInEffects();
+		else
+			fireOutEffects();
+	}
+
+	return TRUE;
+}
+
+// ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 UpdateSleepTime SwitchStateV2::update()
 {

@@ -1186,6 +1186,8 @@ GameMessage::Type CommandTranslator::issueSpecialPowerCommand( const CommandButt
 		if( commandType == DO_COMMAND )
 		{
 			GameMessage *msg;
+			if( specificSource == INVALID_ID )
+				TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod: only units owning this button act
 			msg = TheMessageStream->appendMessage( msgType );
 			msg->appendIntegerArgument( command->getSpecialPowerTemplate()->getID() );
 			msg->appendObjectIDArgument( target->getObject()->getID() );
@@ -1207,6 +1209,8 @@ GameMessage::Type CommandTranslator::issueSpecialPowerCommand( const CommandButt
 		if( commandType == DO_COMMAND )
 		{
 			GameMessage *msg;
+			if( specificSource == INVALID_ID )
+				TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod: only units owning this button act
 			msg = TheMessageStream->appendMessage( msgType );
 			msg->appendIntegerArgument( command->getSpecialPowerTemplate()->getID() );
 			msg->appendLocationArgument( *pos );
@@ -1234,6 +1238,8 @@ GameMessage::Type CommandTranslator::issueSpecialPowerCommand( const CommandButt
 		if( commandType == DO_COMMAND )
 		{
 			GameMessage *msg;
+			if( specificSource == INVALID_ID )
+				TheControlBar->appendCommandSubsetMessage( command );	// GeneralsMod: only units owning this button act
 			msg = TheMessageStream->appendMessage( msgType );
 			msg->appendIntegerArgument( command->getSpecialPowerTemplate()->getID() );
 			msg->appendIntegerArgument( command->getOptions() );

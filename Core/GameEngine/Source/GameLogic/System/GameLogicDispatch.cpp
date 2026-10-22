@@ -213,6 +213,24 @@ static Player *getMessagePlayer(GameMessage *msg)
 }
 
 // ------------------------------------------------------------------------------------------------
+/** GeneralsMod: pending one-shot command subsets (MSG_SET_COMMAND_SUBSET), per player.
+	* A subset is set by MSG_SET_COMMAND_SUBSET and consumed by the very next network message from
+	* the same player, which then operates on that subset instead of the player's full selection.
+	* Only ever non-empty in the middle of one frame's command list, so it never needs saving. */
+// ------------------------------------------------------------------------------------------------
+static std::vector<ObjectID> s_pendingCommandSubset[ MAX_PLAYER_COUNT ];
+static Bool s_hasPendingCommandSubset[ MAX_PLAYER_COUNT ] = { FALSE };
+
+static void clearAllPendingCommandSubsets()
+{
+	for( Int i = 0; i < MAX_PLAYER_COUNT; ++i )
+	{
+		s_pendingCommandSubset[ i ].clear();
+		s_hasPendingCommandSubset[ i ] = FALSE;
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 static Object * getSingleObjectFromSelection(const AIGroup *currentlySelectedGroup)
 {
@@ -399,6 +417,45 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 					if (currentlySelectedGroup->removeAnyObjectsNotOwnedByPlayer(msgPlayer))
 						currentlySelectedGroup = nullptr;
 
+				// GeneralsMod: a pending MSG_SET_COMMAND_SUBSET replaces the selection for exactly this
+				// one message (the command that immediately followed it), then it is cleared.
+				const Int subsetPlayerIndex = msgPlayer->getPlayerIndex();
+				if (msg->getType() != GameMessage::MSG_SET_COMMAND_SUBSET &&
+						subsetPlayerIndex >= 0 && subsetPlayerIndex < MAX_PLAYER_COUNT &&
+						s_hasPendingCommandSubset[subsetPlayerIndex])
+				{
+					if (currentlySelectedGroup)
+					{
+#if RETAIL_COMPATIBLE_AIGROUP
+						TheAI->destroyGroup(currentlySelectedGroup);
+#else
+						currentlySelectedGroup->removeAll();
+#endif
+						currentlySelectedGroup = nullptr;
+					}
+
+					AIGroupPtr subsetGroup = TheAI->createGroup();
+					const std::vector<ObjectID>& subsetIDs = s_pendingCommandSubset[subsetPlayerIndex];
+					for (std::vector<ObjectID>::const_iterator it = subsetIDs.begin(); it != subsetIDs.end(); ++it)
+					{
+						Object *subsetObj = findObjectByID(*it);
+						if (subsetObj && !subsetObj->isEffectivelyDead() && subsetObj->getControllingPlayer() == msgPlayer)
+							subsetGroup->add(subsetObj);
+					}
+
+					if (subsetGroup->isEmpty())
+					{
+#if RETAIL_COMPATIBLE_AIGROUP
+						TheAI->destroyGroup(subsetGroup);
+#endif
+						subsetGroup = nullptr;
+					}
+
+					currentlySelectedGroup = subsetGroup;
+					s_pendingCommandSubset[subsetPlayerIndex].clear();
+					s_hasPendingCommandSubset[subsetPlayerIndex] = FALSE;
+				}
+
 				if(TheStatsCollector)
 					TheStatsCollector->collectMsgStats(msg);
 			}
@@ -432,7 +489,24 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 	{
 		case GameMessage::MSG_NEW_GAME:
 		{
+			clearAllPendingCommandSubsets();	// GeneralsMod
 			onNewGame(msg);
+			break;
+		}
+		case GameMessage::MSG_SET_COMMAND_SUBSET:
+		{
+			// GeneralsMod: remember the subset; the next message from this player consumes it
+			const Int idx = msgPlayer->getPlayerIndex();
+			if (idx >= 0 && idx < MAX_PLAYER_COUNT)
+			{
+				s_pendingCommandSubset[idx].clear();
+				for (Int a = 0; a < msg->getArgumentCount(); ++a)
+				{
+					if (msg->getArgumentDataType(a) == ARGUMENTDATATYPE_OBJECTID)
+						s_pendingCommandSubset[idx].push_back(msg->getArgument(a)->objectID);
+				}
+				s_hasPendingCommandSubset[idx] = TRUE;
+			}
 			break;
 		}
 		case GameMessage::MSG_CLEAR_GAME_DATA:
@@ -1877,11 +1951,30 @@ bool GameLogic::onDozerConstruct(MAYBE_UNUSED GameMessage *msg, AIGroupPtr &curr
 	Real angle;
 
 	// get player, what to place, and location
+	Object *constructorObject = nullptr;
+
+	// GeneralsMod: multi-dozer selections append the chosen builder's ObjectID as an extra,
+	// trailing argument (index 3 for MSG_DOZER_CONSTRUCT, 4 for MSG_DOZER_CONSTRUCT_LINE).
+	const Int builderArgIndex = ( msg->getType() == GameMessage::MSG_DOZER_CONSTRUCT ) ? 3 : 4;
+	if( msg->getArgumentCount() > builderArgIndex &&
+			msg->getArgumentDataType( builderArgIndex ) == ARGUMENTDATATYPE_OBJECTID )
+	{
+		Object *builder = findObjectByID( msg->getArgument( builderArgIndex )->objectID );
+		Player *msgPlayer = getMessagePlayer( msg );
+		if( builder == nullptr || builder->isEffectivelyDead() || builder->getControllingPlayer() != msgPlayer ||
+				!builder->isKindOf( KINDOF_DOZER ) )
+			return false;	// died since, or not ours: not a crash
+		constructorObject = builder;
+	}
+	else
+	{
 #if RETAIL_COMPATIBLE_AIGROUP
-	Object *constructorObject = getSingleObjectFromSelection(currentlySelectedGroup);
+		constructorObject = getSingleObjectFromSelection(currentlySelectedGroup);
 #else
-	Object *constructorObject = getSingleObjectFromSelection(currentlySelectedGroup.Peek());
+		constructorObject = getSingleObjectFromSelection(currentlySelectedGroup.Peek());
 #endif
+	}
+
 	place = TheThingFactory->findByTemplateID( msg->getArgument( 0 )->integer );
 	loc = msg->getArgument( 1 )->location;
 	angle = msg->getArgument( 2 )->real;

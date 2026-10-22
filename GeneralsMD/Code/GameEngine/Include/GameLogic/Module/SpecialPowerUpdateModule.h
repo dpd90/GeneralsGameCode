@@ -56,6 +56,14 @@ public:
 	// have more than one special power), same convention as initiateIntentToDoSpecialPower() above.
 	// Returns true if the call was recognized/handled. Overridden by SwitchStateV2.
 	virtual Bool notifyQualifyingDamage( const SpecialPowerTemplate *specialPowerTemplate ) { return false; }
+
+	// GeneralsMod @feature Dimitar 02/10/2026: explicit, idempotent "be in THIS state" hook, same
+	// non-pure/default-no-op shape as notifyQualifyingDamage() above. Unlike the button's toggle, the
+	// caller says exactly which state it wants, so it can never drift out of sync with the receiver.
+	// Called by PointDefenseUpdateV2 (SwitchStateTemplate) on every active <-> cooldown transition.
+	// fireEffects = FALSE is used for silent initial/load-time syncs (no In/Out FX/OCL/Weapon).
+	// Returns true if the call was recognized/handled. Overridden by SwitchStateV2.
+	virtual Bool forceSwitchState( const SpecialPowerTemplate *specialPowerTemplate, Bool goToAltered, Bool fireEffects ) { return false; }
 };
 
 //-------------------------------------------------------------------------------------------------

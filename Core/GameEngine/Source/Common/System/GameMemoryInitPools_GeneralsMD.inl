@@ -176,7 +176,10 @@ static PoolSizeRec PoolSizes[] =
 	{ "LaserUpdate", 32, 32 },
 	{ "PointDefenseLaserUpdate", 32, 32 },
 	{ "PointDefenseUpdateV2", 32, 32 },///< GeneralsMod @feature Dimitar 14/09/2026: opt-in alternative to PointDefenseLaserUpdate (fixed PredictTargetVelocityFactor, multi-target cache, optional idle sleep)
+	{ "FireTargetWeaponUpdateV2", 32, 32 },///< GeneralsMod @feature Dimitar 07/10/2026: multi-target volley weapon (offensive sibling of PointDefenseUpdateV2)
 	{ "ProjectileClipFeedbackUpdateV2", 64, 32 },///< GeneralsMod @feature Dimitar 25/09/2026: re-pushes ProjectileBoneFeedback ammo state (and optionally weapon model conditions) for DISABLED_HELD riders
+	{ "ScaledAttachmentUpdateV2", 64, 32 },///< GeneralsMod @feature Dimitar 02/10/2026: spawns/attaches one object to its owner and scales/fades it by a model condition (e.g. shield bubble)
+	{ "ScaledUpdateV2", 64, 32 },///< GeneralsMod @feature Dimitar 02/10/2026: scales/fades its own object in and out (lifetime and/or model condition driven)
 	{ "CleanupHazardUpdate", 32, 32 },
 	{ "AutoFindHealingUpdate", 256, 32 },
 	{ "CommandButtonHuntUpdate", 512, 8 },
@@ -246,6 +249,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "SpecialAbility", 512, 32 },
 	{ "SpecialAbilityUpdate", 512, 32 },
 	{ "SwitchStateV2Activate", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, used the same way (short-lived special-power trigger object)
+	{ "AutomaticSwitchStateV2Activate", 16, 16 },///< GeneralsMod @feature Dimitar 01/10/2026: new module, timer-driven automatic counterpart to SwitchStateV2Activate
 	{ "SwitchStateV2", 16, 16 },///< GeneralsMod @feature Dimitar 09/09/2026: new module, paired worker for SwitchStateV2Activate
 	{ "SwitchStateWhenDamagedBehaviorV2", 16, 16 },///< GeneralsMod @feature Dimitar 11/09/2026: new module, automatic damage-triggered counterpart to SwitchStateV2Activate
 	{ "ShieldGeneratorUpdateV2", 16, 16 },///< GeneralsMod @feature Dimitar 13/09/2026, renamed 13/09/2026: temporary absorption-pool shield (paired worker for ShieldGeneratorActivateV2)
@@ -328,6 +332,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "W3DDebrisDraw", 128, 128 },
 	{ "W3DDependencyModelDraw", 64, 64 },
 	{ "W3DLaserDraw", 32, 32 },
+	{ "W3DAnimatedLaserDraw", 32, 32 },///< GeneralsMod @feature Dimitar 06/10/2026: W3DLaserDraw subclass with a flip-book Texture list (sized like W3DLaserDraw)
 	{ "W3DModelDraw", 2048, 512 },
 	{ "W3DPersistentAnimModelDraw", 64, 64 },///< GeneralsMod @feature Dimitar 13/09/2026: opt-in W3DModelDraw subclass, animates through configurable DisabledTypes
 	{ "W3DWheeledTankDraw", 32, 16 },///< GeneralsMod @feature Dimitar 15/09/2026: opt-in W3DTankDraw subclass, differential-steered wheel bones (sized like W3DTankTruckDraw)

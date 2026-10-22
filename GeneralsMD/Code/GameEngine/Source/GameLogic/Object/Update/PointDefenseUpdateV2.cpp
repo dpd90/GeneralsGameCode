@@ -30,18 +30,22 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
 #include "Common/BitFlagsIO.h"
+#include "Common/ModelState.h"
 #include "Common/RandomValue.h"
 #include "Common/ThingTemplate.h"
 #include "Common/Xfer.h"
 
 #include "GameClient/Drawable.h"
+#include "GameClient/FXList.h"
 
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/PartitionManager.h"
 #include "GameLogic/Object.h"
+#include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/ObjectIter.h"
 #include "GameLogic/Module/PointDefenseUpdateV2.h"
 #include "GameLogic/Module/PhysicsUpdate.h"
+#include "GameLogic/Module/SpecialPowerUpdateModule.h"
 #include "GameLogic/Weapon.h"
 
 
@@ -57,6 +61,38 @@ PointDefenseUpdateV2ModuleData::PointDefenseUpdateV2ModuleData()
 	m_velocityFactor			= 0.0f;
 	m_maxTrackedTargets		= 1;			// same single-target behavior as PointDefenseLaserUpdate unless raised
 	m_minimumInterceptRange	= 0.0f;		// disabled -- intercept everything in range, same as before this field existed
+
+	// GeneralsMod @feature Dimitar 02/10/2026: block limit / cooldown -- all off by default
+	m_blocksBeforeCooldown				= 0;			// block forever
+	m_cooldownFrames							= 0;
+	m_blockCounterResetFrames			= 0;			// partial count never decays
+	m_shieldHealth								= 0.0f;		// health pool off
+	m_drainMultiplier							= 1.0f;
+	m_defaultDrain								= 0.0f;
+	m_shieldRegenRate							= 0.0f;		// no regen
+	m_shieldRegenDelayFrames			= 0;
+	m_activeConditionState				= MODELCONDITION_INVALID;
+	m_cooldownConditionState			= MODELCONDITION_INVALID;
+	m_switchStateTemplate					= nullptr;
+	m_alteredStateWhenOnCooldown	= FALSE;	// Altered while active/charged
+
+	// GeneralsMod @feature Dimitar 02/10/2026: interference -- off unless InterferenceGroup is given
+	m_interferenceGroup						= NAMEKEY_INVALID;
+	m_interferenceRange						= 0.0f;
+	m_interferenceScanFrames			= LOGICFRAMES_PER_SECOND / 2;	// 500 ms
+	m_interferenceCooldownFrames	= 0;			// use CooldownDuration
+	m_hasInterference							= TRUE;		// can be knocked down by a clash
+	m_interferenceFX							= nullptr;
+	m_interferenceOCL							= nullptr;
+	m_switchStateEffectsOnInterference	= TRUE;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** InterferenceGroup: a free name, hashed once at INI load so runtime comparisons are just an int compare. */
+//-------------------------------------------------------------------------------------------------
+/*static*/ void PointDefenseUpdateV2ModuleData::parseInterferenceGroup( INI* ini, void * /*instance*/, void *store, const void* /*userData*/ )
+{
+	*(NameKeyType*)store = TheNameKeyGenerator->nameToKey( ini->getNextToken() );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -75,6 +111,26 @@ PointDefenseUpdateV2ModuleData::PointDefenseUpdateV2ModuleData()
 		{ "PredictTargetVelocityFactor", INI::parseReal,					nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_velocityFactor ) },
 		{ "MaxTrackedTargets",		INI::parseUnsignedInt,					nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_maxTrackedTargets ) },
 		{ "MinimumInterceptRange", INI::parseReal,					nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_minimumInterceptRange ) },
+		{ "BlocksBeforeCooldown",	INI::parseUnsignedInt,					nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_blocksBeforeCooldown ) },
+		{ "CooldownDuration",			INI::parseDurationUnsignedInt,	nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_cooldownFrames ) },
+		{ "BlockCounterResetTime",	INI::parseDurationUnsignedInt,	nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_blockCounterResetFrames ) },
+		{ "ShieldHealth",					INI::parseReal,									nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_shieldHealth ) },
+		{ "DrainMultiplier",			INI::parseReal,									nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_drainMultiplier ) },
+		{ "DefaultDrain",					INI::parseReal,									nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_defaultDrain ) },
+		{ "ShieldRegenRate",			INI::parseReal,									nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_shieldRegenRate ) },
+		{ "ShieldRegenDelay",			INI::parseDurationUnsignedInt,	nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_shieldRegenDelayFrames ) },
+		{ "ActiveConditionState",	INI::parseIndexList,	ModelConditionFlags::getBitNames(), offsetof( PointDefenseUpdateV2ModuleData, m_activeConditionState ) },
+		{ "CooldownConditionState",	INI::parseIndexList,	ModelConditionFlags::getBitNames(), offsetof( PointDefenseUpdateV2ModuleData, m_cooldownConditionState ) },
+		{ "SwitchStateTemplate",	INI::parseSpecialPowerTemplate,	nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_switchStateTemplate ) },
+		{ "AlteredStateWhenOnCooldown", INI::parseBool,				nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_alteredStateWhenOnCooldown ) },
+		{ "InterferenceGroup",		parseInterferenceGroup,					nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_interferenceGroup ) },
+		{ "InterferenceRange",		INI::parseReal,									nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_interferenceRange ) },
+		{ "InterferenceScanRate",	INI::parseDurationUnsignedInt,	nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_interferenceScanFrames ) },
+		{ "InterferenceCooldownDuration", INI::parseDurationUnsignedInt, nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_interferenceCooldownFrames ) },
+		{ "HasInterference",			INI::parseBool,									nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_hasInterference ) },
+		{ "InterferenceFX",				INI::parseFXList,								nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_interferenceFX ) },
+		{ "InterferenceOCL",			INI::parseObjectCreationList,		nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_interferenceOCL ) },
+		{ "SwitchStateEffectsOnInterference", INI::parseBool,			nullptr, offsetof( PointDefenseUpdateV2ModuleData, m_switchStateEffectsOnInterference ) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	p.add(dataFieldParse);
@@ -158,11 +214,25 @@ PointDefenseUpdateV2::PointDefenseUpdateV2( Thing *thing, const ModuleData* modu
 	m_nextShotAvailableInFrames = 0;
 	m_inRange  					= false;
 
+	m_blocksThisCycle			= 0;
+	m_lastBlockFrame			= 0;
+	m_cooldownEndFrame		= 0;		// start active (fully charged)
+	m_phaseVisualsApplied	= FALSE;
+	m_currentShieldHealth	= getPointDefenseUpdateV2ModuleData()->m_shieldHealth;	// start full
+	m_lastDrainFrame			= 0;
+	m_lastRegenFrame			= TheGameLogic->getFrame();
+
 	// OPTIMIZATION: stagger the very first scan so a batch of these units built or placed on the
 	// same frame don't stay locked in step, all doing their expensive full scans on the same tick
 	// forever after. Purely cosmetic for load, but costs nothing.
 	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
 	m_nextScanFrames = ( data->m_scanFrames > 1 ) ? GameLogicRandomValue( 0, (Int)data->m_scanFrames - 1 ) : 0;
+
+	// Same staggering for the interference check. Only roll the random number when interference is
+	// actually on, so units without it consume exactly the same logic RNG as before this feature.
+	m_nextInterferenceCheckFrame = TheGameLogic->getFrame();
+	if( data->m_interferenceGroup != NAMEKEY_INVALID && data->m_interferenceScanFrames > 1 )
+		m_nextInterferenceCheckFrame += GameLogicRandomValue( 0, (Int)data->m_interferenceScanFrames - 1 );
 
 	setWakeFrame(getObject(), UPDATE_SLEEP_NONE);// No starting sleep, but we want to sleep later.
 }
@@ -202,6 +272,41 @@ void PointDefenseUpdateV2::onObjectCreated()
 		DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has MaxTrackedTargets=%d, clamping to %d",
 			getObject()->getTemplate()->getName().str(), data->m_maxTrackedTargets, PDU2_MAX_TRACKED_TARGETS ) );
 	}
+
+	if( data->m_shieldHealth > 0.0f && data->m_blocksBeforeCooldown > 0 )
+	{
+		DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has both ShieldHealth and BlocksBeforeCooldown -- they're alternatives; using ShieldHealth",
+			getObject()->getTemplate()->getName().str() ) );
+	}
+	if( data->m_shieldHealth > 0.0f && data->m_cooldownFrames == 0 )
+	{
+		DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has ShieldHealth but no CooldownDuration -- the shield will never break",
+			getObject()->getTemplate()->getName().str() ) );
+	}
+
+	if( data->m_shieldHealth <= 0.0f && data->m_blocksBeforeCooldown > 0 && data->m_cooldownFrames == 0 )
+	{
+		DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has BlocksBeforeCooldown=%d but no CooldownDuration -- it will block forever",
+			getObject()->getTemplate()->getName().str(), data->m_blocksBeforeCooldown ) );
+	}
+
+	if( data->m_interferenceGroup != NAMEKEY_INVALID )
+	{
+		if( data->m_interferenceRange <= 0.0f )
+		{
+			DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has InterferenceGroup but no InterferenceRange -- it will never clash",
+				getObject()->getTemplate()->getName().str() ) );
+		}
+		if( data->m_hasInterference && getInterferenceCooldownFrames() == 0 )
+		{
+			DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has InterferenceGroup but neither InterferenceCooldownDuration nor CooldownDuration -- it will never clash",
+				getObject()->getTemplate()->getName().str() ) );
+		}
+	}
+
+	// NOTE: the initial visual / SwitchStateV2 sync is NOT done here. onObjectCreated() runs inside
+	// Object::init() before the Drawable is bound (sendObjectCreated() comes later), so model
+	// condition flags set now would be silently dropped. It's done on the first update() instead.
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -224,6 +329,46 @@ UpdateSleepTime PointDefenseUpdateV2::update()
 
 	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
 
+	// First update after creation: silently put the visuals / linked SwitchStateV2 into the phase we
+	// start in (no In/Out effects -- the unit didn't "power up", it was built that way).
+	if( !m_phaseVisualsApplied )
+	{
+		applyPhaseVisuals( m_cooldownEndFrame != 0, FALSE );
+		m_phaseVisualsApplied = TRUE;
+	}
+
+	// GeneralsMod @feature Dimitar 02/10/2026: cooldown. Normally we're asleep for the whole thing and
+	// only get here once it's over; the frame check covers anything that wakes us early, and a
+	// cooldown that expired while we were disabled (update() isn't called then).
+	if( m_cooldownEndFrame != 0 )
+	{
+		if( TheGameLogic->getFrame() < m_cooldownEndFrame )
+			return frameToSleepTime( m_cooldownEndFrame );
+
+		exitCooldown();
+	}
+
+	// ShieldHealth mode: gradual regen while up (by elapsed frames, so idle sleeps don't lose any).
+	regenShield();
+
+	// GeneralsMod @feature Dimitar 02/10/2026: shield interference. Runs on its own (slow) timer,
+	// independent of whether any enemies are around.
+	if( data->m_interferenceGroup != NAMEKEY_INVALID )
+	{
+		UnsignedInt now = TheGameLogic->getFrame();
+		if( now >= m_nextInterferenceCheckFrame )
+		{
+			m_nextInterferenceCheckFrame = now + ( data->m_interferenceScanFrames > 0 ? data->m_interferenceScanFrames : 1 );
+			// checkInterference() knocks down everyone else it finds either way; we only go down ourselves
+			// if a clash can affect us (HasInterference = No is the immune "superpower" shield).
+			if( checkInterference() && data->m_hasInterference )
+			{
+				fireInterferenceEffects();
+				return enterCooldown( getInterferenceCooldownFrames(), TRUE );
+			}
+		}
+	}
+
 	//Optimized firing at already-cached targets. (Forcing an early re-scan specifically when the
 	//cache runs dry mid-cycle is handled inside fireWhenReady() itself, not here -- see the
 	//"hadTracked" logic there. Doing it there instead of with a blanket "m_numTracked > 0" check
@@ -235,12 +380,16 @@ UpdateSleepTime PointDefenseUpdateV2::update()
 	{
 		m_nextScanFrames--;
 		fireWhenReady();
+		if( isBlockLimitReached() )
+			return enterCooldown( data->m_cooldownFrames, FALSE );
 		return UPDATE_SLEEP_NONE;
 	}
 
 	//Periodic scanning (expensive)
 	Bool foundAnything = scanForTargets();
 	fireWhenReady();
+	if( isBlockLimitReached() )
+		return enterCooldown( data->m_cooldownFrames, FALSE );
 
 	if( foundAnything )
 	{
@@ -251,7 +400,19 @@ UpdateSleepTime PointDefenseUpdateV2::update()
 	//No enemies at all within ScanRange.
 	m_nextScanFrames = 0;
 	if( data->m_idleScanFrames > 0 )
-		return UPDATE_SLEEP( data->m_idleScanFrames );
+	{
+		// Don't idle-sleep past our next interference check, or two idle shield units parked next to
+		// each other would never notice.
+		UnsignedInt sleepFrames = data->m_idleScanFrames;
+		if( data->m_interferenceGroup != NAMEKEY_INVALID )
+		{
+			UnsignedInt now = TheGameLogic->getFrame();
+			UnsignedInt untilCheck = ( m_nextInterferenceCheckFrame > now ) ? m_nextInterferenceCheckFrame - now : 1;
+			if( untilCheck < sleepFrames )
+				sleepFrames = untilCheck;
+		}
+		return UPDATE_SLEEP( sleepFrames );
+	}
 
 	return UPDATE_SLEEP_NONE;
 }
@@ -280,7 +441,12 @@ void PointDefenseUpdateV2::fireWhenReady()
 	bonus.clear();
 	Real fireRange = data->m_weaponTemplate->getAttackRange( bonus );
 	Real fireRangeSq = fireRange * fireRange;
-	Real minRangeSq = ( data->m_minimumInterceptRange > 0.0f ) ? data->m_minimumInterceptRange * data->m_minimumInterceptRange : 0.0f;
+	// MinimumInterceptRange, or the weapon's own MinimumAttackRange if that's larger: fireWeaponTemplate()
+	// silently refuses targets inside the latter, so never pick one (see fireWhenReady()).
+	Real minRange = data->m_minimumInterceptRange;
+	if( data->m_weaponTemplate->getMinimumAttackRange() > minRange )
+		minRange = data->m_weaponTemplate->getMinimumAttackRange();
+	Real minRangeSq = ( minRange > 0.0f ) ? minRange * minRange : 0.0f;
 
 	Int hadTracked = m_numTracked; //remember whether we walked in with anything to lose
 
@@ -332,16 +498,337 @@ void PointDefenseUpdateV2::fireWhenReady()
 
 		Weapon* w = TheWeaponStore->allocateNewWeapon( wt, TERTIARY_WEAPON );
 		w->loadAmmoNow( getObject() );
-		Bool actuallyFired = w->fireWeapon( getObject(), target );
+		w->fireWeapon( getObject(), target );
+		// GeneralsMod fix 02/10/2026: fireWeapon()'s return value means "the clip RELOADED", NOT "a shot
+		// went out" (see Weapon::privateFireWeapon()) -- with a normal clip it's FALSE for every real
+		// shot, which meant no DelayBetweenShots and no block counting at all (fired every frame,
+		// BlocksBeforeCooldown never reached). privateFireWeapon() stamps m_lastFireFrame whenever it
+		// goes through the fire path; it only bails out before that if the weapon isn't READY_TO_FIRE,
+		// which a freshly loaded weapon always is. The one remaining silent refusal inside
+		// fireWeaponTemplate() -- the weapon's own MinimumAttackRange -- is prevented up front by folding
+		// it into minRangeSq, so such a target is never picked in the first place.
+		Bool actuallyFired = ( w->getLastShotFrame() == TheGameLogic->getFrame() );
 		deleteInstance(w);
 
-		// Only start the reload timer if the shot actually went out. fireWeapon() can still silently
-		// refuse internally (WeaponTemplate::fireWeaponTemplate()'s own range checks, e.g. if the
-		// weapon still has its own MinimumAttackRange set) -- if we didn't fire, don't burn a reload
-		// cycle on nothing, or a single unreachable cached target could jam us against every other
-		// target too.
+		// Only start the reload timer if the shot actually went out -- if we didn't fire, don't burn a
+		// reload cycle on nothing, or a single unreachable cached target could jam us against every
+		// other target too.
 		if( actuallyFired )
+		{
 			m_nextShotAvailableInFrames = wt->getDelayBetweenShots( fireBonus );
+
+			if( usesShieldHealth() )
+			{
+				// ShieldHealth: charged once, on the shot that destroys the projectile (laser damage is
+				// applied immediately, so it's already dead here if this shot killed it). "Last stand": a
+				// projectile worth more than what's left is still blocked -- health just bottoms out at 0.
+				if( target->isEffectivelyDead() )
+				{
+					m_currentShieldHealth -= getProjectileDrain( target );
+					if( m_currentShieldHealth < 0.0f )
+						m_currentShieldHealth = 0.0f;
+					m_lastDrainFrame = TheGameLogic->getFrame();
+				}
+			}
+			else
+				registerBlock();	// a "block" = a shot that actually went out (not a confirmed kill)
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 02/10/2026: block limit / cooldown
+//-------------------------------------------------------------------------------------------------
+void PointDefenseUpdateV2::registerBlock()
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	if( data->m_blocksBeforeCooldown == 0 )
+		return;	// unlimited -- nothing to count
+
+	UnsignedInt now = TheGameLogic->getFrame();
+
+	// BlockCounterResetTime: checked lazily here (on the next block) instead of with a timer -- same
+	// result, zero cost while nothing is happening.
+	if( data->m_blockCounterResetFrames > 0 && m_blocksThisCycle > 0 && now - m_lastBlockFrame >= data->m_blockCounterResetFrames )
+		m_blocksThisCycle = 0;
+
+	++m_blocksThisCycle;
+	m_lastBlockFrame = now;
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool PointDefenseUpdateV2::isBlockLimitReached() const
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	if( data->m_cooldownFrames == 0 )
+		return FALSE;
+
+	if( usesShieldHealth() )
+		return m_currentShieldHealth <= 0.0f;
+
+	return data->m_blocksBeforeCooldown > 0
+		&& m_blocksThisCycle >= (Int)data->m_blocksBeforeCooldown;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 05/10/2026: ShieldHealth
+//-------------------------------------------------------------------------------------------------
+Bool PointDefenseUpdateV2::usesShieldHealth() const
+{
+	return getPointDefenseUpdateV2ModuleData()->m_shieldHealth > 0.0f;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** The damage this projectile would have dealt: the PrimaryDamage of the weapon it detonates with
+	* (DumbProjectileBehavior / MissileAIUpdate / MissileAIUpdateV2 know it), times DrainMultiplier.
+	* Base weapon value -- the launcher's veterancy/upgrade bonuses aren't applied. */
+//-------------------------------------------------------------------------------------------------
+Real PointDefenseUpdateV2::getProjectileDrain( Object *projectile ) const
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+
+	for( BehaviorModule** m = projectile->getBehaviorModules(); *m; ++m )
+	{
+		ProjectileUpdateInterface *pui = (*m)->getProjectileUpdateInterface();
+		if( !pui )
+			continue;
+
+		const WeaponTemplate *detWeapon = pui->projectileGetDetonationWeapon();
+		if( detWeapon )
+		{
+			WeaponBonus bonus;
+			bonus.clear();
+			return detWeapon->getPrimaryDamage( bonus ) * data->m_drainMultiplier;
+		}
+	}
+
+	return data->m_defaultDrain * data->m_drainMultiplier;
+}
+
+//-------------------------------------------------------------------------------------------------
+void PointDefenseUpdateV2::regenShield()
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	UnsignedInt now = TheGameLogic->getFrame();
+
+	if( usesShieldHealth() && data->m_shieldRegenRate > 0.0f && m_currentShieldHealth < data->m_shieldHealth )
+	{
+		// Regen counts from whichever is later: the last time we applied it, or the end of the delay
+		// after the last drain.
+		UnsignedInt from = m_lastRegenFrame;
+		UnsignedInt delayEnd = m_lastDrainFrame + data->m_shieldRegenDelayFrames;
+		if( delayEnd > from )
+			from = delayEnd;
+
+		if( now > from )
+		{
+			m_currentShieldHealth += data->m_shieldRegenRate * (Real)( now - from ) / (Real)LOGICFRAMES_PER_SECOND;
+			if( m_currentShieldHealth > data->m_shieldHealth )
+				m_currentShieldHealth = data->m_shieldHealth;
+		}
+	}
+
+	m_lastRegenFrame = now;
+}
+
+//-------------------------------------------------------------------------------------------------
+UpdateSleepTime PointDefenseUpdateV2::enterCooldown( UnsignedInt cooldownFrames, Bool fromInterference )
+{
+	// Forget everything we were tracking -- the world will look different when we wake up.
+	for( Int i = 0; i < PDU2_MAX_TRACKED_TARGETS; ++i )
+		m_trackedTargets[i] = INVALID_ID;
+	m_numTracked = 0;
+	m_inRange = false;
+	m_blocksThisCycle = 0;
+	m_currentShieldHealth = 0.0f;	// down (a clash empties it too); refilled in exitCooldown()
+
+	if( cooldownFrames == 0 )
+		cooldownFrames = 1;	// callers guard against this; just never produce m_cooldownEndFrame == now with a 0 sleep
+
+	m_cooldownEndFrame = TheGameLogic->getFrame() + cooldownFrames;
+
+	// SwitchStateEffectsOnInterference = No: on a clash, switch the linked SwitchStateV2 silently (no
+	// In/Out effects) -- InterferenceFX/OCL are the clash's effects. Running out of blocks always fires them.
+	Bool fireEffects = !( fromInterference && !getPointDefenseUpdateV2ModuleData()->m_switchStateEffectsOnInterference );
+	applyPhaseVisuals( TRUE, fireEffects );
+
+	// Real engine sleep for the whole cooldown -- no per-frame cost.
+	return UPDATE_SLEEP( cooldownFrames );
+}
+
+//-------------------------------------------------------------------------------------------------
+void PointDefenseUpdateV2::exitCooldown()
+{
+	m_cooldownEndFrame = 0;
+	m_blocksThisCycle = 0;
+	m_currentShieldHealth = getPointDefenseUpdateV2ModuleData()->m_shieldHealth;	// back at full health
+	m_lastRegenFrame = TheGameLogic->getFrame();	// no regen accrued during the cooldown
+	m_nextScanFrames = 0;							// scan immediately -- we've been blind for the whole cooldown
+	m_nextShotAvailableInFrames = 0;	// fully recharged, no leftover reload
+	m_nextInterferenceCheckFrame = TheGameLogic->getFrame();	// check for clashes right away -- still-stacked units go straight back down
+
+	applyPhaseVisuals( FALSE, TRUE );
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 02/10/2026: shield interference
+//-------------------------------------------------------------------------------------------------
+NameKeyType PointDefenseUpdateV2::getInterferenceGroup() const
+{
+	return getPointDefenseUpdateV2ModuleData()->m_interferenceGroup;
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool PointDefenseUpdateV2::hasInterference() const
+{
+	return getPointDefenseUpdateV2ModuleData()->m_hasInterference;
+}
+
+//-------------------------------------------------------------------------------------------------
+UnsignedInt PointDefenseUpdateV2::getInterferenceCooldownFrames() const
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	return ( data->m_interferenceCooldownFrames > 0 ) ? data->m_interferenceCooldownFrames : data->m_cooldownFrames;
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool PointDefenseUpdateV2::isInterferenceShieldUp() const
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	if( data->m_interferenceGroup == NAMEKEY_INVALID )
+		return FALSE;
+	if( m_cooldownEndFrame != 0 )
+		return FALSE;	// already down -- no shield to clash with, and don't extend its cooldown
+	if( data->m_hasInterference && getInterferenceCooldownFrames() == 0 )
+		return FALSE;	// misconfigured (warned in onObjectCreated) -- can't go on cooldown. (An immune
+									// HasInterference = No shield never goes on cooldown from a clash, so it doesn't need one.)
+
+	const Object *obj = getObject();
+	if( obj->isEffectivelyDead() )
+		return FALSE;
+	if( obj->isDisabled() )
+		return FALSE;	// EMP/underpowered/etc. -- our update isn't even running
+	if( obj->getContainedBy() != nullptr )
+		return FALSE;	// inside a transport/building
+	if( obj->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+		return FALSE;
+
+	return TRUE;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** InterferenceFX / InterferenceOCL, at our own position -- whenever a clash knocks THIS unit down. */
+//-------------------------------------------------------------------------------------------------
+void PointDefenseUpdateV2::fireInterferenceEffects()
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	Object *obj = getObject();
+
+	if( data->m_interferenceFX )
+		FXList::doFXObj( data->m_interferenceFX, obj );
+	if( data->m_interferenceOCL )
+		ObjectCreationList::create( data->m_interferenceOCL, obj, nullptr );
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Knocked down by another unit's clash check. We're not the module currently being updated, so we
+	* can't return a sleep time -- reschedule our own update to the end of the cooldown instead. */
+//-------------------------------------------------------------------------------------------------
+void PointDefenseUpdateV2::startInterferenceCooldown()
+{
+	fireInterferenceEffects();
+
+	UnsignedInt frames = getInterferenceCooldownFrames();
+	enterCooldown( frames, TRUE );
+	m_phaseVisualsApplied = TRUE;	// enterCooldown just applied them
+	setWakeFrame( getObject(), UPDATE_SLEEP( frames > 0 ? frames : 1 ) );
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Looks for other units with an active PointDefenseUpdateV2 of our InterferenceGroup within
+	* InterferenceRange -- any player. Every one found is put on cooldown right here; the caller puts
+	* us on cooldown when this returns TRUE. Deterministic game logic, so safe in multiplayer. */
+//-------------------------------------------------------------------------------------------------
+Bool PointDefenseUpdateV2::checkInterference()
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	if( data->m_interferenceRange <= 0.0f || !isInterferenceShieldUp() )
+		return FALSE;
+
+	Object *me = getObject();
+	const NameKeyType myModuleKey = getModuleNameKey();	// "PointDefenseUpdateV2"
+
+	// No relationship filter on purpose: own, allied and enemy shields all clash.
+	ObjectIterator *iter = ThePartitionManager->iterateObjectsInRange( me->getPosition(), data->m_interferenceRange, FROM_CENTER_2D, nullptr );
+	MemoryPoolObjectHolder hold(iter);
+
+	Bool clashed = FALSE;
+	for( Object *other = iter->first(); other; other = iter->next() )
+	{
+		if( other == me || other->isEffectivelyDead() )
+			continue;
+
+		// Walk all modules (not findUpdateModule) so an object carrying more than one
+		// PointDefenseUpdateV2 has every matching one knocked down.
+		for( BehaviorModule** m = other->getBehaviorModules(); *m; ++m )
+		{
+			if( (*m)->getModuleNameKey() != myModuleKey )
+				continue;
+
+			PointDefenseUpdateV2 *otherPD = static_cast<PointDefenseUpdateV2*>( *m );
+			if( otherPD->getInterferenceGroup() != data->m_interferenceGroup )
+				continue;
+			if( !otherPD->isInterferenceShieldUp() )
+				continue;
+
+			// Meeting an active shield is a clash for us either way; it only goes down if it can be
+			// knocked down (HasInterference = No: immune "superpower" shield -- it still knocks US down).
+			if( otherPD->hasInterference() )
+				otherPD->startInterferenceCooldown();
+			clashed = TRUE;
+		}
+	}
+
+	return clashed;
+}
+
+//-------------------------------------------------------------------------------------------------
+void PointDefenseUpdateV2::applyPhaseVisuals( Bool onCooldown, Bool fireEffects )
+{
+	const PointDefenseUpdateV2ModuleData *data = getPointDefenseUpdateV2ModuleData();
+	Object *obj = getObject();
+
+	// Condition flags: clear the other phase's flag first, then set this phase's.
+	ModelConditionFlagType setFlag		= onCooldown ? data->m_cooldownConditionState : data->m_activeConditionState;
+	ModelConditionFlagType clearFlag	= onCooldown ? data->m_activeConditionState : data->m_cooldownConditionState;
+
+	if( clearFlag != MODELCONDITION_INVALID && clearFlag != setFlag )
+		obj->clearModelConditionFlags( MAKE_MODELCONDITION_MASK( clearFlag ) );
+	if( setFlag != MODELCONDITION_INVALID )
+		obj->setModelConditionState( setFlag );
+
+	// Linked SwitchStateV2 (same lookup AutomaticSwitchStateV2Activate / SwitchStateWhenDamagedBehaviorV2 use).
+	if( data->m_switchStateTemplate )
+	{
+		Bool goToAltered = onCooldown ? data->m_alteredStateWhenOnCooldown : !data->m_alteredStateWhenOnCooldown;
+
+		Bool handled = FALSE;
+		for( BehaviorModule** u = obj->getBehaviorModules(); *u; ++u )
+		{
+			SpecialPowerUpdateInterface *spu = (*u)->getSpecialPowerUpdateInterface();
+			if( spu && spu->forceSwitchState( data->m_switchStateTemplate, goToAltered, fireEffects ) )
+			{
+				handled = TRUE;
+				break;
+			}
+		}
+
+		// Only complain on the initial sync, not on every transition.
+		if( !handled && !fireEffects )
+		{
+			DEBUG_CRASH( ("PointDefenseUpdateV2 for %s has SwitchStateTemplate set, but no SwitchStateV2 with that SpecialPowerTemplate was found on the object",
+				obj->getTemplate()->getName().str() ) );
+		}
 	}
 }
 
@@ -355,7 +842,12 @@ Bool PointDefenseUpdateV2::scanForTargets()
 	bonus.clear();
 	Real fireRange = data->m_weaponTemplate->getAttackRange( bonus );
 	Real fireRangeSq = fireRange * fireRange;
-	Real minRangeSq = ( data->m_minimumInterceptRange > 0.0f ) ? data->m_minimumInterceptRange * data->m_minimumInterceptRange : 0.0f;
+	// MinimumInterceptRange, or the weapon's own MinimumAttackRange if that's larger: fireWeaponTemplate()
+	// silently refuses targets inside the latter, so never pick one (see fireWhenReady()).
+	Real minRange = data->m_minimumInterceptRange;
+	if( data->m_weaponTemplate->getMinimumAttackRange() > minRange )
+		minRange = data->m_weaponTemplate->getMinimumAttackRange();
+	Real minRangeSq = ( minRange > 0.0f ) ? minRange * minRange : 0.0f;
 
 	//OPTIMIZATION: prune to enemies only during the grid walk itself (inside the partition manager),
 	//instead of pulling back every nearby object -- including our own side -- and rejecting most of
@@ -474,13 +966,16 @@ void PointDefenseUpdateV2::crc( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Xfer method
 	* Version Info:
-	* 1: Initial version */
+	* 1: Initial version
+	* 2: GeneralsMod -- block limit / cooldown state (m_blocksThisCycle, m_lastBlockFrame, m_cooldownEndFrame)
+	* 3: GeneralsMod -- shield interference (m_nextInterferenceCheckFrame)
+	* 4: GeneralsMod -- ShieldHealth (m_currentShieldHealth, m_lastDrainFrame, m_lastRegenFrame) */
 // ------------------------------------------------------------------------------------------------
 void PointDefenseUpdateV2::xfer( Xfer *xfer )
 {
 
 	// version
-	XferVersion currentVersion = 1;
+	XferVersion currentVersion = 4;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -501,6 +996,26 @@ void PointDefenseUpdateV2::xfer( Xfer *xfer )
 	// next shot available in frames
 	xfer->xferInt( &m_nextShotAvailableInFrames );
 
+	// block limit / cooldown (version 1 saves just keep the constructor defaults: active, count 0)
+	if( version >= 2 )
+	{
+		xfer->xferInt( &m_blocksThisCycle );
+		xfer->xferUnsignedInt( &m_lastBlockFrame );
+		xfer->xferUnsignedInt( &m_cooldownEndFrame );
+	}
+
+	// interference (older saves keep the constructor value: check on the next update)
+	if( version >= 3 )
+		xfer->xferUnsignedInt( &m_nextInterferenceCheckFrame );
+
+	// ShieldHealth (older saves keep the constructor values: full health)
+	if( version >= 4 )
+	{
+		xfer->xferReal( &m_currentShieldHealth );
+		xfer->xferUnsignedInt( &m_lastDrainFrame );
+		xfer->xferUnsignedInt( &m_lastRegenFrame );
+	}
+
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -511,5 +1026,10 @@ void PointDefenseUpdateV2::loadPostProcess()
 
 	// extend base class
 	UpdateModule::loadPostProcess();
+
+	// Re-assert the restored phase on the visuals / linked SwitchStateV2, silently. Every other
+	// module's xfer() has already run by now, so this is idempotent if they restored correctly.
+	applyPhaseVisuals( m_cooldownEndFrame != 0, FALSE );
+	m_phaseVisualsApplied = TRUE;
 
 }

@@ -84,6 +84,11 @@ public:
 	virtual void setTerrainDecal(TerrainDecalType type) {};
 	virtual void setTerrainDecalSize(Real x, Real y) {};
 	virtual void setTerrainDecalOpacity(Real o) {};
+	// GeneralsMod @feature Dimitar 02/10/2026: extra yaw for an object-bound terrain decal, applied on top
+	// of the owner's own facing (W3DProjectedShadowManager::queueDecal). Used by PersistentDecalUpdateV2's
+	// FollowOwnerRotation = No to counter-rotate the decal so it keeps a fixed world facing. Non-pure,
+	// default no-op. Mirrored into Generals/'s DrawModule.h (W3DModelDraw in Core overrides it).
+	virtual void setTerrainDecalAngle(Real angle) {};
 
 	// GeneralsMod @feature Dimitar 14/09/2026: sibling to setTerrainDecal() above, but takes the
 	// texture name/size directly instead of indexing the fixed compiled-in TerrainDecalType/

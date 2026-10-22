@@ -343,6 +343,7 @@ public:
 	RadiusCursorType getRadiusCursorType() const { return m_radiusCursor; }
 	WeaponSlotType getWeaponSlot() const { return m_weaponSlot; }
 	Int getMaxShotsToFire() const { return m_maxShotsToFire; }
+	Int getMultiSelectPriority() const { return m_multiSelectPriority; }	///< GeneralsMod: multi-select union ordering (higher = earlier, negative = after default buttons)
 	const ScienceVec& getScienceVec() const { return m_science; }
 	CommandButtonMappedBorderType getCommandButtonMappedBorderType() const { return m_commandButtonBorder; }
 	const Image* getButtonImage() const { return m_buttonImage;	}
@@ -390,6 +391,7 @@ private:
 	AsciiString										m_conflictingLabel;						///< Description for the current command if it can't be selected due to multually-exclusive choice.
 	WeaponSlotType								m_weaponSlot;									///< for commands that refer to a weapon slot
 	Int														m_maxShotsToFire;							///< for commands that fire weapons
+	Int														m_multiSelectPriority;				///< GeneralsMod: multi-select union ordering override (0 = use CommandSet Priority)
 	ScienceVec										m_science;										///< actual science
 	CommandButtonMappedBorderType	m_commandButtonBorder;
 	AsciiString										m_buttonImageName;
@@ -429,6 +431,8 @@ public:
 
 	const AsciiString& getName() const { return m_name; }
 	const CommandButton* getCommandButton(Int i) const;
+	Int getPriority() const { return m_priority; }		///< GeneralsMod: multi-select union ordering of this set's buttons (higher = earlier)
+	Bool hasCommandButton( const CommandButton *button ) const;	///< GeneralsMod: does any slot of this set hold exactly this button
 
 	// only for the control bar.
 	CommandSet* friend_getNext() { return m_next; }
@@ -442,6 +446,7 @@ private:
 
 	AsciiString m_name;															  ///< name of this command set
 	const CommandButton *m_command[ MAX_COMMANDS_PER_SET ]; ///< the set of command buttons that make this set
+	Int m_priority;																	///< GeneralsMod: multi-select union ordering (INI "Priority")
 
 	CommandSet *m_next;
 
@@ -769,6 +774,20 @@ public:
 	/// set the command data into the button
 	void setControlCommand( GameWindow *button, const CommandButton *commandButton );
 
+	// GeneralsMod: multi-select command union support -----------------------------------------
+	/// When several objects are selected, append a MSG_SET_COMMAND_SUBSET naming only the selected
+	/// objects whose CommandSet contains exactly this button. Call immediately BEFORE appending the
+	/// command message itself. No-op for single selection or when every selected object owns it.
+	void appendCommandSubsetMessage( const CommandButton *command );
+	/// True when the current selection is two or more dozers that all share one CommandSet.
+	Bool isMultiDozerSelection() const;
+	/// Pick the selected dozer that should build next (no build task pending, nearest to pos,
+	/// lowest ObjectID as tie-break). Returns nullptr if none is free. pos may be nullptr.
+	Object *chooseMultiSelectBuilder( const Coord3D *pos ) const;
+	/// Remember that this dozer was just given a build order, so the next placement (sent before
+	/// logic has processed this one) prefers a different dozer.
+	void noteMultiSelectBuilderUsed( ObjectID id );
+
 	void getForegroundMarkerPos(Int *x, Int *y);
 	void getBackgroundMarkerPos(Int *x, Int *y);
 
@@ -809,8 +828,8 @@ protected:
 	/// evaluate what the user should see based on what selected drawables we have in our UI
 	void evaluateContextUI();
 
-	/// add the common commands of this drawable to the common command set
-	void addCommonCommands( Drawable *draw, Bool firstDrawable );
+	/// GeneralsMod: true if this button has nothing left to do for this object (e.g. completed upgrade)
+	Bool isCommandSpent( const CommandButton *command, Object *obj ) const;
 
 	/// switch the interface context to the new mode and populate as needed
 	void switchToContext( ControlBarContext context, Drawable *draw );
@@ -928,6 +947,12 @@ protected:
 
 	GameWindow *m_commandWindows[ MAX_COMMANDS_PER_SET ];			///< command window controls for easy access
 	const CommandButton *m_commonCommands[ MAX_COMMANDS_PER_SET ];	///< shared commands we will use for multi-selection
+
+	// GeneralsMod: dozers recently handed a multi-select build order (client-side, not synced)
+	enum { MAX_RECENT_MULTI_BUILDERS = 8 };
+	ObjectID m_recentBuilderIDs[ MAX_RECENT_MULTI_BUILDERS ];
+	UnsignedInt m_recentBuilderFrames[ MAX_RECENT_MULTI_BUILDERS ];
+	Int m_nextRecentBuilder;
 
 		// removed from multiplayer branch
 	//GameWindow *m_commandMarkers[ MAX_COMMANDS_PER_SET ];			///< When we don't have a command, they want to show an image

@@ -387,6 +387,16 @@ void ActiveBody::attemptDamage( DamageInfo *damageInfo )
 
 		case DAMAGE_KILLPILOT:
 		{
+			// GeneralsMod @bugfix Dimitar 06/10/2026: respect armor. Vanilla ignored the armor-adjusted amount
+			// here, so 'Armor = KILL_PILOT 0%' only stopped direct targeting (which does check armor) while
+			// area-of-effect KILL_PILOT damage still killed the pilot. Fully immune armor now ignores the hit.
+			if( amount <= 0.0f )
+			{
+				alreadyHandled = TRUE;
+				allowModifier = FALSE;
+				break;
+			}
+
 			// This type of damage doesn't actually damage the unit, but it does kill it's
 			// pilot, in the case of a vehicle.
 			if( obj->isKindOf( KINDOF_VEHICLE ) )

@@ -84,6 +84,9 @@ public:
 	virtual void setTerrainDecal(TerrainDecalType type) {};
 	virtual void setTerrainDecalSize(Real x, Real y) {};
 	virtual void setTerrainDecalOpacity(Real o) {};
+	// GeneralsMod @feature Dimitar 02/10/2026: mirrored from GeneralsMD's DrawModule.h only so the shared
+	// Core W3DModelDraw override still compiles for this target -- not a Generals feature.
+	virtual void setTerrainDecalAngle(Real angle) {};
 
 	// GeneralsMod @feature Dimitar 14/09/2026: mechanical sync only -- PersistentDecalUpdateV2 and
 	// everything that uses this is GeneralsMD (Zero Hour) only and never runs in this Generals/

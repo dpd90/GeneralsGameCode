@@ -2564,6 +2564,12 @@ void Weapon::newProjectileFired(const Object *sourceObj, const Object *projectil
 //-------------------------------------------------------------------------------------------------
 void Weapon::createLaser( const Object *sourceObj, const Object *victimObj, const Coord3D *victimPos, WeaponSlotType wslot, Int specificBarrelToUse )
 {
+	// GeneralsMod @feature Dimitar 02/10/2026: "LaserName = None" means "behave as a laser weapon (instant
+	// hit, laser-side ProjectileDetonationFX/OCL -- see fireWeaponTemplate()) but don't spawn any beam
+	// object". Skip the template lookup quietly instead of asserting about a missing "None" template.
+	if( m_template->getLaserName().compareNoCase( "None" ) == 0 )
+		return;
+
 	const ThingTemplate* pst = TheThingFactory->findTemplate(m_template->getLaserName());
 	if( !pst )
 	{

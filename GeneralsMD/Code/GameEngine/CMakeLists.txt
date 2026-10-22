@@ -345,6 +345,8 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/HiveStructureBody.h
     Include/GameLogic/Module/HordeUpdate.h
     Include/GameLogic/Module/ImmortalBody.h
+    Include/GameLogic/Module/ScaledAttachmentUpdateV2.h
+    Include/GameLogic/Module/ScaledUpdateV2.h
     Include/GameLogic/Module/ShieldedBody.h
     Include/GameLogic/Module/InactiveBody.h
     Include/GameLogic/Module/InstantDeathBehavior.h
@@ -388,6 +390,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/PilotFindVehicleUpdate.h
     Include/GameLogic/Module/PointDefenseLaserUpdate.h
     Include/GameLogic/Module/PointDefenseUpdateV2.h
+    Include/GameLogic/Module/FireTargetWeaponUpdateV2.h
     Include/GameLogic/Module/ProjectileClipFeedbackUpdateV2.h
     Include/GameLogic/Module/PoisonedBehavior.h
     Include/GameLogic/Module/PowerPlantUpdate.h
@@ -463,6 +466,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/SupplyWarehouseDockUpdate.h
     Include/GameLogic/Module/SwitchStateV2.h
     Include/GameLogic/Module/SwitchStateV2Activate.h
+    Include/GameLogic/Module/AutomaticSwitchStateV2Activate.h
     Include/GameLogic/Module/SwitchStateWhenDamagedBehaviorV2.h
     Include/GameLogic/Module/ShieldGeneratorUpdateV2.h
     Include/GameLogic/Module/DamageOverTimeUpdateV2.h
@@ -1054,6 +1058,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/PilotFindVehicleUpdate.cpp
     Source/GameLogic/Object/Update/PointDefenseLaserUpdate.cpp
     Source/GameLogic/Object/Update/PointDefenseUpdateV2.cpp
+    Source/GameLogic/Object/Update/FireTargetWeaponUpdateV2.cpp
     Source/GameLogic/Object/Update/ProjectileClipFeedbackUpdateV2.cpp
     Source/GameLogic/Object/Update/PowerPlantUpdate.cpp
     Source/GameLogic/Object/Update/ProductionExitUpdate/DefaultProductionExitUpdate.cpp
@@ -1065,6 +1070,8 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/ProneUpdate.cpp
     Source/GameLogic/Object/Update/RadarUpdate.cpp
     Source/GameLogic/Object/Update/RadiusDecalUpdate.cpp
+    Source/GameLogic/Object/Update/ScaledAttachmentUpdateV2.cpp
+    Source/GameLogic/Object/Update/ScaledUpdateV2.cpp
     Source/GameLogic/Object/Update/SlavedUpdate.cpp
     Source/GameLogic/Object/Update/SmartBombTargetHomingUpdate.cpp
     Source/GameLogic/Object/Update/SpecialAbilityUpdate.cpp
@@ -1078,6 +1085,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/StructureCollapseUpdate.cpp
     Source/GameLogic/Object/Update/StructureToppleUpdate.cpp
     Source/GameLogic/Object/Update/SwitchStateV2.cpp
+    Source/GameLogic/Object/Update/AutomaticSwitchStateV2Activate.cpp
     Source/GameLogic/Object/Update/ShieldGeneratorUpdateV2.cpp
     Source/GameLogic/Object/Update/DamageOverTimeUpdateV2.cpp
     Source/GameLogic/Object/Update/TensileFormationUpdate.cpp

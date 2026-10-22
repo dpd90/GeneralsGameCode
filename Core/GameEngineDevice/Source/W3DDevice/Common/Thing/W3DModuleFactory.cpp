@@ -53,6 +53,7 @@
 #include "W3DDevice/GameClient/Module/W3DWheeledTankDraw.h"///< GeneralsMod @feature Dimitar 15/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
 #include "W3DDevice/GameClient/Module/W3DBreakApartPieceDraw.h"///< GeneralsMod @feature Dimitar 19/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
 #include "W3DDevice/GameClient/Module/W3DOverlordWheeledTankDraw.h"///< GeneralsMod @feature Dimitar 23/09/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
+#include "W3DDevice/GameClient/Module/W3DAnimatedLaserDraw.h"///< GeneralsMod @feature Dimitar 06/10/2026: GeneralsMD-only, see W3DModuleFactory::init() below for why this is guarded
 #endif
 
 //-------------------------------------------------------------------------------------------------
@@ -101,6 +102,9 @@ void W3DModuleFactory::init()
 	// GeneralsMod @feature Dimitar 23/09/2026: same reasoning as W3DPersistentAnimModelDraw above --
 	// GeneralsMD-only class, must stay guarded in this shared factory file.
 	addModule( W3DOverlordWheeledTankDraw );
+	// GeneralsMod @feature Dimitar 06/10/2026: same reasoning as W3DPersistentAnimModelDraw above --
+	// GeneralsMD-only class, must stay guarded in this shared factory file.
+	addModule( W3DAnimatedLaserDraw );
 #endif
 #endif
 

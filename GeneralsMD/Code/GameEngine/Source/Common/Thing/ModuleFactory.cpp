@@ -137,7 +137,10 @@
 #include "GameLogic/Module/LaserUpdate.h"
 #include "GameLogic/Module/PointDefenseLaserUpdate.h"
 #include "GameLogic/Module/PointDefenseUpdateV2.h"
+#include "GameLogic/Module/FireTargetWeaponUpdateV2.h"
 #include "GameLogic/Module/ProjectileClipFeedbackUpdateV2.h"
+#include "GameLogic/Module/ScaledAttachmentUpdateV2.h"
+#include "GameLogic/Module/ScaledUpdateV2.h"
 #include "GameLogic/Module/CleanupHazardUpdate.h"
 #include "GameLogic/Module/AutoFindHealingUpdate.h"
 #include "GameLogic/Module/CommandButtonHuntUpdate.h"
@@ -177,6 +180,7 @@
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"
 #include "GameLogic/Module/SpecialAbilityUpdate.h"
 #include "GameLogic/Module/SwitchStateV2.h"
+#include "GameLogic/Module/AutomaticSwitchStateV2Activate.h"///< GeneralsMod @feature Dimitar 01/10/2026
 #include "GameLogic/Module/ShieldGeneratorUpdateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/DamageOverTimeUpdateV2.h"///< GeneralsMod @feature Dimitar 15/09/2026
 #include "GameLogic/Module/MissileLauncherBuildingUpdate.h"
@@ -447,7 +451,10 @@ void ModuleFactory::init()
 	addModule( LaserUpdate );
 	addModule( PointDefenseLaserUpdate );
 	addModule( PointDefenseUpdateV2 );
+	addModule( FireTargetWeaponUpdateV2 );
 	addModule( ProjectileClipFeedbackUpdateV2 );
+	addModule( ScaledAttachmentUpdateV2 );
+	addModule( ScaledUpdateV2 );
 	addModule( CleanupHazardUpdate );
 	addModule( CommandButtonHuntUpdate );
 	addModule( PilotFindVehicleUpdate );
@@ -472,6 +479,7 @@ void ModuleFactory::init()
 	addModule( OCLUpdate );
 	addModule( SpecialAbilityUpdate );
 	addModule( SwitchStateV2 );
+	addModule( AutomaticSwitchStateV2Activate );///< GeneralsMod @feature Dimitar 01/10/2026
 	addModule( ShieldGeneratorUpdateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( DamageOverTimeUpdateV2 );///< GeneralsMod @feature Dimitar 15/09/2026
 	addModule( MissileLauncherBuildingUpdate );

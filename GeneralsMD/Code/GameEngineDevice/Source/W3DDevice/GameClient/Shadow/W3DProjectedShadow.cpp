@@ -828,6 +828,11 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 		{
 			objPos=robj->Get_Position();
 			objXform=robj->Get_Transform();
+			// GeneralsMod @feature Dimitar 02/10/2026: optional extra yaw on top of the owner's facing (set via
+			// DrawModule::setTerrainDecalAngle -- PersistentDecalUpdateV2 FollowOwnerRotation = No). Object-bound
+			// decals never set it otherwise (stays 0), so this is a no-op for every existing decal.
+			if (shadow->m_localAngle != 0.0f)
+				objXform.Rotate_Z(shadow->m_localAngle);
 			if (robj->Get_User_Data())
 			{
 				Drawable *draw=((DrawableInfo *)robj->Get_User_Data())->m_drawable;

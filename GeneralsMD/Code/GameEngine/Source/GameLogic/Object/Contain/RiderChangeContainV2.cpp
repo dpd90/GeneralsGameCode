@@ -23,6 +23,11 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#define DEFINE_LOCOMOTORSET_NAMES //Gain access to TheLocomotorSetNames[]
+
+#include "Common/INI.h"
+#include "Common/ModelState.h"
+#include "Common/ObjectStatusTypes.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/ThingTemplate.h"
@@ -34,12 +39,15 @@
 #include "GameClient/InGameUI.h"
 
 #include "GameLogic/AI.h"
+#include "GameLogic/ArmorSet.h"
+#include "GameLogic/WeaponSetFlags.h"
 #include "GameLogic/ExperienceTracker.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/Locomotor.h"
 
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/BodyModule.h"
 #include "GameLogic/Module/StealthUpdate.h"
 #include "GameLogic/Module/RiderChangeContainV2.h"
 
@@ -53,15 +61,65 @@ RiderChangeContainV2ModuleData::RiderChangeContainV2ModuleData()
 }
 
 // ------------------------------------------------------------------------------------------------
-/** Each "Rider = ..." statement appends one row. Row syntax is identical to vanilla RiderN, so the
-	* vanilla row parser is reused as-is. */
+/// Index of 'token' in the armor set flag names, or -1 if it isn't one. Armor set names and object
+/// status names don't overlap, which is what makes the armor field optional.
 // ------------------------------------------------------------------------------------------------
-void RiderChangeContainV2ModuleData::parseRider( INI* ini, void *instance, void *store, const void* userData )
+static Int findArmorSetIndex( const char* token )
 {
-	std::vector<RiderInfo>* riders = (std::vector<RiderInfo>*)store;
+	if( !token )
+		return -1;
 
-	RiderInfo info;
-	RiderChangeContainModuleData::parseRiderInfo( ini, instance, &info, userData );
+	const char* const* names = ArmorSetFlags::getBitNames();
+	for( Int i = 0; names[ i ]; ++i )
+	{
+		if( stricmp( token, names[ i ] ) == 0 )
+			return i;
+	}
+	return -1;
+}
+
+// ------------------------------------------------------------------------------------------------
+/** Each "Rider = ..." statement appends one row:
+	*   Template ModelCondition WeaponSetFlag [ArmorSetFlag] ObjectStatus CommandSet LocomotorSet
+	* Without the armor field this is exactly vanilla RiderN syntax (same order as
+	* RiderChangeContainModuleData::parseRiderInfo); the armor field sits where SwitchStateV2 puts it. */
+// ------------------------------------------------------------------------------------------------
+void RiderChangeContainV2ModuleData::parseRider( INI* ini, void *instance, void *store, const void* /*userData*/ )
+{
+	std::vector<RiderInfoV2>* riders = (std::vector<RiderInfoV2>*)store;
+
+	RiderInfoV2 info;
+	info.m_armorSetFlag = (ArmorSetType)0;
+	info.m_hasArmorSet = FALSE;
+
+	//Template name
+	const char* name = ini->getNextToken();
+	info.m_templateName.format( name );
+
+	//Model condition state
+	INI::parseIndexList( ini, instance, &(info.m_modelConditionFlagType), ModelConditionFlags::getBitNames() );
+
+	//Weaponset
+	INI::parseIndexList( ini, instance, &(info.m_weaponSetFlag), WeaponSetFlags::getBitNames() );
+
+	//Optional armor set, then object status
+	const char* token = ini->getNextToken();
+	const Int armorIndex = findArmorSetIndex( token );
+	if( armorIndex >= 0 )
+	{
+		info.m_armorSetFlag = (ArmorSetType)armorIndex;
+		info.m_hasArmorSet = TRUE;
+		token = ini->getNextToken();
+	}
+	info.m_objectStatusType = (ObjectStatusType)INI::scanIndexList( token, ObjectStatusMaskType::getBitNames() );
+
+	//Command set override
+	name = ini->getNextToken();
+	info.m_commandSet.format( name );
+
+	//Locomotor set type
+	info.m_locomotorSetType = (LocomotorSetType)INI::scanIndexList( ini->getNextToken(), TheLocomotorSetNames );
+
 	riders->push_back( info );
 }
 
@@ -182,11 +240,19 @@ void RiderChangeContainV2::onContaining( Object *rider, Bool wasSelected )
 	const Int index = findRiderIndex( rider );
 	if( index >= 0 )
 	{
-		const RiderInfo& info = getRiderChangeContainV2ModuleData()->m_riders[ index ];
+		const RiderInfoV2& info = getRiderChangeContainV2ModuleData()->m_riders[ index ];
 
 		obj->setModelConditionState( info.m_modelConditionFlagType );
 		obj->setWeaponSetFlag( info.m_weaponSetFlag );
 		obj->setStatus( MAKE_OBJECT_STATUS_MASK( info.m_objectStatusType ) );
+
+		//Armor set (optional per row), same way SwitchStateV2 applies it
+		if( info.m_hasArmorSet )
+		{
+			BodyModuleInterface *body = obj->getBodyModule();
+			if( body )
+				body->setArmorSetFlag( info.m_armorSetFlag );
+		}
 
 		obj->setCommandSetStringOverride( info.m_commandSet );
 		TheControlBar->markUIDirty();	// Refresh the UI in case we are selected
@@ -245,11 +311,18 @@ void RiderChangeContainV2::onRemoving( Object *rider )
 	const Int index = findRiderIndex( rider );
 	if( index >= 0 )
 	{
-		const RiderInfo& info = data->m_riders[ index ];
+		const RiderInfoV2& info = data->m_riders[ index ];
 
 		bike->clearModelConditionFlags( MAKE_MODELCONDITION_MASK2( info.m_modelConditionFlagType, MODELCONDITION_DOOR_1_CLOSING ) );
 		bike->clearWeaponSetFlag( info.m_weaponSetFlag );
 		bike->clearStatus( MAKE_OBJECT_STATUS_MASK( info.m_objectStatusType ) );
+
+		if( info.m_hasArmorSet )
+		{
+			BodyModuleInterface *body = bike->getBodyModule();
+			if( body )
+				body->clearArmorSetFlag( info.m_armorSetFlag );
+		}
 
 		//A null player means game teardown -- don't transfer experience then (see vanilla comment).
 		if( rider->getControllingPlayer() != nullptr )

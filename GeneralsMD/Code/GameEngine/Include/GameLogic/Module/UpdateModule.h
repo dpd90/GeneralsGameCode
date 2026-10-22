@@ -263,6 +263,11 @@ public:
 	virtual Bool projectileHandleCollision(Object *other) = 0;
 	virtual void setFramesTillCountermeasureDiversionOccurs( UnsignedInt frames ) = 0; ///< Number of frames till missile diverts to countermeasures.
 	virtual void projectileNowJammed() = 0;
+
+	// GeneralsMod @feature Dimitar 05/10/2026: the weapon this projectile will detonate with (its real
+	// damage), or nullptr if unknown. Non-pure with a default so other implementers (e.g.
+	// NeutronMissileUpdate) don't have to change. Used by PointDefenseUpdateV2's ShieldHealth drain.
+	virtual const WeaponTemplate* projectileGetDetonationWeapon() const { return nullptr; }
 };
 
 //-------------------------------------------------------------------------------------------------

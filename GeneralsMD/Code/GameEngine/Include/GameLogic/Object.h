@@ -503,6 +503,12 @@ public:
 
   void notifyFiringTrackerShotFired( const Weapon* weaponFired, ObjectID victimID ) ;
 
+	// GeneralsMod @feature Dimitar 09/10/2026: shot-fired listeners. A module that wants
+	// BehaviorModule::onOwnerShotFired() calls registerShotFiredListener() from its constructor (not
+	// saved -- modules are re-constructed on load). Objects without listeners pay one Bool check per shot.
+	void registerShotFiredListener() { m_hasShotFiredListeners = TRUE; }
+	void notifyShotFiredListeners( const Weapon* weaponFired, ObjectID victimID );
+
   /**
 		Determines if the unit has any weapon that could conceivably
 		harm the victim. this does not take range, ammo, etc. into
@@ -742,6 +748,7 @@ private:
 	SubdualDamageHelper*					m_subdualDamageHelper;
 	TempWeaponBonusHelper*				m_tempWeaponBonusHelper;
 	FiringTracker*								m_firingTracker;	///< Tracker is really a "helper" and is included NUM_SLEEP_HELPERS
+	Bool													m_hasShotFiredListeners;	///< GeneralsMod: some module wants onOwnerShotFired() (see registerShotFiredListener)
 
 	// modules
 	BehaviorModule**							m_behaviors;	// BehaviorModule, not BehaviorModuleInterface

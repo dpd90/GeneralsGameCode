@@ -33,6 +33,7 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
 #include "Common/GameUtility.h"	// GeneralsMod @feature Dimitar 14/09/2026: rts::getObservedOrLocalPlayer(), for OnlyVisibleToOwningPlayer
+#include "Common/DrawModule.h"
 #include "Common/Xfer.h"
 #include "GameClient/Drawable.h"
 #include "GameLogic/Module/PersistentDecalUpdateV2.h"
@@ -42,7 +43,48 @@
 //-------------------------------------------------------------------------------------------------
 PersistentDecalUpdateV2::PersistentDecalUpdateV2( Thing *thing, const ModuleData* moduleData ) : UpdateModule( thing, moduleData )
 {
+	m_lockedAngle	= 0.0f;
+	m_lastScale		= -1.0f;	// "unknown" -- forces the first push
+	m_lastOpacity	= -1.0f;
+	m_lastAngle		= -99999.0f;
+
 	setWakeFrame( getObject(), UPDATE_SLEEP_FOREVER );
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Paints the decal. With FollowObjectScale, the decal is created invisible (opacity 0, size from the
+	* current instance scale): when an object is freshly spawned, whatever scales it (e.g. the owner's
+	* ScaledAttachmentUpdateV2) hasn't applied its scale yet, so painting at SizeX/SizeY would show one
+	* frame at full size before update() shrinks it. update() pushes the real size/opacity on its next
+	* run, which is before the first frame where the difference could be seen. */
+//-------------------------------------------------------------------------------------------------
+void PersistentDecalUpdateV2::paintDecal( Drawable *draw )
+{
+	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
+	if( !draw )
+		return;
+
+	draw->setPersistentDecal( data->m_textureName, data->m_sizeX, data->m_sizeY, data->m_style );
+
+	if( data->m_followObjectScale )
+	{
+		Real scale = draw->getInstanceScale();
+		draw->setTerrainDecalSize( data->m_sizeX * scale, data->m_sizeY * scale );
+		for( DrawModule** dm = draw->getDrawModules(); *dm; ++dm )
+			(*dm)->setTerrainDecalOpacity( 0.0f );
+	}
+
+	// New decal instance: make update() push size/opacity/angle again.
+	m_lastScale = -1.0f;
+	m_lastOpacity = -1.0f;
+	m_lastAngle = -99999.0f;
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool PersistentDecalUpdateV2::needsPerFrameUpdate() const
+{
+	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
+	return data->m_followObjectScale || !data->m_followOwnerRotation;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -61,11 +103,55 @@ PersistentDecalUpdateV2::~PersistentDecalUpdateV2()
 //-------------------------------------------------------------------------------------------------
 UpdateSleepTime PersistentDecalUpdateV2::update()
 {
-	// GeneralsMod @feature Dimitar 14/09/2026: this module never wakes itself once constructed --
-	// upgradeImplementation() paints the decal once (below) and never touches the wake state, so
-	// the object stays asleep forever. This should never actually run, but UpdateModule::update()
-	// is pure virtual and must be defined.
-	return UPDATE_SLEEP_FOREVER;
+	// GeneralsMod @feature Dimitar 02/10/2026: only awake when a follow mode is on and the decal has been
+	// painted (upgradeImplementation() wakes us). Everything here is purely visual: it only pushes values
+	// to this client's own Drawable/decal, so per-client differences (OnlyVisibleToOwningPlayer, stealth
+	// opacity) can't desync anything.
+	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
+	if( !needsPerFrameUpdate() || !isAlreadyUpgraded() || data->m_textureName.isEmpty() )
+		return UPDATE_SLEEP_FOREVER;
+
+	Object *obj = getObject();
+	Drawable *draw = obj->getDrawable();
+	if( !draw )
+		return UPDATE_SLEEP_NONE;
+
+	if( data->m_followObjectScale )
+	{
+		Real scale = draw->getInstanceScale();
+		if( scale != m_lastScale )
+		{
+			draw->setTerrainDecalSize( data->m_sizeX * scale, data->m_sizeY * scale );
+			m_lastScale = scale;
+		}
+
+		Real opacity = draw->getEffectiveOpacity();
+		if( opacity < 0.0f )
+			opacity = 0.0f;
+		if( opacity > 1.0f )
+			opacity = 1.0f;
+		if( opacity != m_lastOpacity )
+		{
+			for( DrawModule** dm = draw->getDrawModules(); *dm; ++dm )
+				(*dm)->setTerrainDecalOpacity( opacity );
+			m_lastOpacity = opacity;
+		}
+	}
+
+	if( !data->m_followOwnerRotation )
+	{
+		// The decal is drawn with the object's facing; add the difference back so it stays at the
+		// facing it was painted with.
+		Real angle = m_lockedAngle - obj->getOrientation();
+		if( angle != m_lastAngle )
+		{
+			for( DrawModule** dm = draw->getDrawModules(); *dm; ++dm )
+				(*dm)->setTerrainDecalAngle( angle );
+			m_lastAngle = angle;
+		}
+	}
+
+	return UPDATE_SLEEP_NONE;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -95,6 +181,17 @@ void PersistentDecalUpdateV2::upgradeImplementation()
 	if ( data->m_textureName.isEmpty() )
 		return;
 
+	// GeneralsMod @feature Dimitar 02/10/2026: follow modes. Done before the per-client visibility check
+	// below so this module's own state is identical on every client.
+	m_lockedAngle = getObject()->getOrientation();
+	if ( needsPerFrameUpdate() )
+	{
+		m_lastScale = -1.0f;
+		m_lastOpacity = -1.0f;
+		m_lastAngle = -99999.0f;
+		setWakeFrame( getObject(), UPDATE_SLEEP_NONE );
+	}
+
 	// GeneralsMod @feature Dimitar 14/09/2026: OnlyVisibleToOwningPlayer -- same one-time,
 	// checked-only-here semantics as RadiusDecalTemplate::createRadiusDecal()'s own field of the
 	// same name (Core/GameEngine/Source/GameClient/RadiusDecal.cpp): if the observing client isn't
@@ -110,9 +207,7 @@ void PersistentDecalUpdateV2::upgradeImplementation()
 			 getObject()->getControllingPlayer() != rts::getObservedOrLocalPlayer() )
 		return;
 
-	Drawable *draw = getObject()->getDrawable();
-	if ( draw )
-		draw->setPersistentDecal( data->m_textureName, data->m_sizeX, data->m_sizeY, data->m_style );
+	paintDecal( getObject()->getDrawable() );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -143,7 +238,7 @@ void PersistentDecalUpdateV2::onCapture( Player *oldOwner, Player *newOwner )
 		return;
 
 	if ( newOwner == rts::getObservedOrLocalPlayer() )
-		draw->setPersistentDecal( data->m_textureName, data->m_sizeX, data->m_sizeY, data->m_style );
+		paintDecal( draw );
 	else
 		draw->setPersistentDecal( AsciiString::TheEmptyString, 0.0f, 0.0f, data->m_style );	// this client no longer owns it -- clear
 }
@@ -162,18 +257,24 @@ void PersistentDecalUpdateV2::crc( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Xfer method
 	* Version Info:
-	* 1: Initial version */
+	* 1: Initial version
+	* 2: GeneralsMod 02/10/2026 -- m_lockedAngle (FollowOwnerRotation = No) */
 // ------------------------------------------------------------------------------------------------
 void PersistentDecalUpdateV2::xfer( Xfer *xfer )
 {
 
 	// version
-	XferVersion currentVersion = 1;
+	XferVersion currentVersion = 2;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
 	// extend base class
 	UpdateModule::xfer( xfer );
+
+	// FollowOwnerRotation = No: the facing to hold (older saves keep the value captured when the decal
+	// was repainted on load -- the object's facing at that moment)
+	if( version >= 2 )
+		xfer->xferReal( &m_lockedAngle );
 
 }
 
@@ -185,5 +286,10 @@ void PersistentDecalUpdateV2::loadPostProcess()
 
 	// extend base class
 	UpdateModule::loadPostProcess();
+
+	// The decal was recreated on load: make update() push size/opacity/angle again.
+	m_lastScale = -1.0f;
+	m_lastOpacity = -1.0f;
+	m_lastAngle = -99999.0f;
 
 }

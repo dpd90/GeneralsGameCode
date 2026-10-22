@@ -148,7 +148,9 @@ void HotKeyManager::addHotKey( GameWindow *win, const AsciiString& keyIn)
 	HotKeyMap::iterator it = m_hotKeyMap.find(key);
 	if( it != m_hotKeyMap.end() )
 	{
-		DEBUG_CRASH(("Hotkey %s is already mapped to window %s, current window is %s", key.str(), it->second.m_win->winGetInstanceData()->m_decoratedNameString.str(), win->winGetInstanceData()->m_decoratedNameString.str()));
+		// GeneralsMod: the multi-select command union can legitimately show two buttons with the same
+		// hotkey (the higher-priority one is registered first and keeps it), so this is a log, not a crash
+		DEBUG_LOG(("Hotkey %s is already mapped to window %s, current window is %s", key.str(), it->second.m_win->winGetInstanceData()->m_decoratedNameString.str(), win->winGetInstanceData()->m_decoratedNameString.str()));
 		return;
 	}
 	HotKey newHK;

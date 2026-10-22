@@ -52,6 +52,19 @@
 //	(GameState.cpp registers it before CHUNK_GameLogic), so a player-wide TriggeredBy upgrade is
 //	already satisfied and the decal gets repainted right there. Nothing needs to be xferred for this.
 //
+//	GeneralsMod @feature Dimitar 02/10/2026: two optional follow modes (both off by default -- with both
+//	off the module still paints once and sleeps forever, exactly as before):
+//	  - FollowObjectScale = Yes: every frame the decal's size is SizeX/SizeY times this object's
+//	    Drawable instance scale, and its opacity is the Drawable's opacity. So whatever scales/fades
+//	    the object (ScaledAttachmentUpdateV2 on the owner, ScaledUpdateV2 on itself, EMPUpdate...) also
+//	    scales/fades its ground decal, with no extra timing fields to keep in sync. (Hiding the Drawable
+//	    already hides an object-bound decal.) Don't use it on a unit with InstanceScaleFuzziness unless
+//	    you want the decal size to vary with it too.
+//	  - FollowOwnerRotation = No: the decal keeps the world facing this object had when the decal was
+//	    painted, and doesn't turn with it (counter-rotated every frame via DrawModule::
+//	    setTerrainDecalAngle). Note: a decal on a ScaledAttachmentUpdateV2 attachment that already uses
+//	    FollowOwnerRotation = No doesn't need this -- that attachment object itself never turns.
+//
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -73,6 +86,8 @@ public:
 	Real						m_sizeY;				///< world-space decal height
 	Bool						m_startsActive;	///< StartsActive -- if Yes (default), the decal is painted immediately on creation, no upgrade needed at all; set No to make TriggeredBy the only trigger
 	ShadowType			m_style;				///< Style -- SHADOW_ALPHA_DECAL (default) or SHADOW_ADDITIVE_DECAL, see TheShadowNames in Shadow.h
+	Bool						m_followObjectScale;	///< FollowObjectScale -- GeneralsMod 02/10/2026: decal size/opacity follow this object's Drawable instance scale/opacity every frame. Default No.
+	Bool						m_followOwnerRotation;	///< FollowOwnerRotation -- GeneralsMod 02/10/2026: No = keep the facing it was painted with. Default Yes.
 	Bool						m_onlyVisibleToOwningPlayer;	///< OnlyVisibleToOwningPlayer -- if Yes, only the owning player's own client ever paints this decal at all (checked once, same semantics/limitation as RadiusDecalTemplate's field of the same name -- does not react to a later capture)
 
 	PersistentDecalUpdateV2ModuleData()
@@ -82,6 +97,8 @@ public:
 		m_startsActive = TRUE;
 		m_style = SHADOW_ALPHA_DECAL;
 		m_onlyVisibleToOwningPlayer = FALSE;
+		m_followObjectScale = FALSE;
+		m_followOwnerRotation = TRUE;
 	}
 
 	static void buildFieldParse(MultiIniFieldParse& p)
@@ -94,6 +111,8 @@ public:
 			{ "StartsActive",	INI::parseBool,					nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_startsActive ) },
 			{ "Style",			INI::parseBitString32,	TheShadowNames, offsetof( PersistentDecalUpdateV2ModuleData, m_style ) },
 			{ "OnlyVisibleToOwningPlayer",	INI::parseBool,		nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_onlyVisibleToOwningPlayer ) },
+			{ "FollowObjectScale",	INI::parseBool,				nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_followObjectScale ) },
+			{ "FollowOwnerRotation",	INI::parseBool,			nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_followOwnerRotation ) },
 			{ 0, 0, 0, 0 }
 		};
 
@@ -157,4 +176,17 @@ protected:
 		return getPersistentDecalUpdateV2ModuleData()->m_upgradeMuxData.m_requiresAllTriggers;
 	}
 	virtual Bool isSubObjectsUpgrade() override { return false; }
+
+private:
+
+	Bool needsPerFrameUpdate() const;	///< FollowObjectScale or FollowOwnerRotation = No
+	void paintDecal( Drawable *draw );	///< setPersistentDecal(), plus the FollowObjectScale first-frame fix
+
+	// saved
+	Real	m_lockedAngle;	///< FollowOwnerRotation = No: world facing captured when the decal was painted
+
+	// not saved (only avoid redundant calls; reset on load)
+	Real	m_lastScale;
+	Real	m_lastOpacity;
+	Real	m_lastAngle;
 };

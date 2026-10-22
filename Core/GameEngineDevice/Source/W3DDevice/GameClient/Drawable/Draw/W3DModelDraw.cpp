@@ -2864,6 +2864,16 @@ void W3DModelDraw::setTerrainDecalOpacity(Real o)
 	}
 }
 
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 02/10/2026: extra yaw on top of the owner's facing -- see DrawModule.h.
+void W3DModelDraw::setTerrainDecalAngle(Real angle)
+{
+	if (m_terrainDecal)
+	{
+		m_terrainDecal->setAngle(angle);
+	}
+}
+
 
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::nukeCurrentRender(Matrix3D* xform)

@@ -223,6 +223,32 @@ const char* const ArmorSetFlags::s_bitNameList[] =
 	"ARMOR_RIDER7",
 	"ARMOR_RIDER8",
 
+	// GeneralsMod @feature Dimitar 05/10/2026: ARMOR_RIDER9-32 for RiderChangeContainV2
+	"ARMOR_RIDER9",
+	"ARMOR_RIDER10",
+	"ARMOR_RIDER11",
+	"ARMOR_RIDER12",
+	"ARMOR_RIDER13",
+	"ARMOR_RIDER14",
+	"ARMOR_RIDER15",
+	"ARMOR_RIDER16",
+	"ARMOR_RIDER17",
+	"ARMOR_RIDER18",
+	"ARMOR_RIDER19",
+	"ARMOR_RIDER20",
+	"ARMOR_RIDER21",
+	"ARMOR_RIDER22",
+	"ARMOR_RIDER23",
+	"ARMOR_RIDER24",
+	"ARMOR_RIDER25",
+	"ARMOR_RIDER26",
+	"ARMOR_RIDER27",
+	"ARMOR_RIDER28",
+	"ARMOR_RIDER29",
+	"ARMOR_RIDER30",
+	"ARMOR_RIDER31",
+	"ARMOR_RIDER32",
+
 	nullptr
 };
 static_assert(ARRAY_SIZE(ArmorSetFlags::s_bitNameList) == ArmorSetFlags::NumBits + 1, "Incorrect array size");

@@ -10,6 +10,7 @@ set(GAMEENGINEDEVICE_SRC
 #    Include/W3DDevice/GameClient/camerashakesystem.h
 #    Include/W3DDevice/GameClient/FlatHeightMap.h
 #    Include/W3DDevice/GameClient/HeightMap.h
+    Include/W3DDevice/GameClient/Module/W3DAnimatedLaserDraw.h
     Include/W3DDevice/GameClient/Module/W3DBreakApartPieceDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DDebrisDraw.h
 #    Include/W3DDevice/GameClient/Module/W3DDefaultDraw.h
@@ -101,6 +102,7 @@ set(GAMEENGINEDEVICE_SRC
 #    Source/W3DDevice/Common/W3DConvert.cpp
 #    Source/W3DDevice/GameClient/BaseHeightMap.cpp
 #    Source/W3DDevice/GameClient/camerashakesystem.cpp
+    Source/W3DDevice/GameClient/Drawable/Draw/W3DAnimatedLaserDraw.cpp
     Source/W3DDevice/GameClient/Drawable/Draw/W3DBreakApartPieceDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.cpp
 #    Source/W3DDevice/GameClient/Drawable/Draw/W3DDefaultDraw.cpp

@@ -230,8 +230,22 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		case GUI_COMMAND_DOZER_CONSTRUCT:
 		{
 
+			// GeneralsMod: with several same-set dozers selected, preview the placement from any free
+			// dozer; the builder that actually gets the order is chosen again at placement time
+			// (PlaceEventTranslator, nearest free dozer) and sent with MSG_DOZER_CONSTRUCT.
+			Drawable *builderDraw = m_currentSelectedDrawable;
+			if( builderDraw == nullptr && m_currContext == CB_CONTEXT_MULTI_SELECT && isMultiDozerSelection() )
+			{
+				Object *freeDozer = chooseMultiSelectBuilder( nullptr );
+				if( freeDozer )
+				{
+					obj = freeDozer;
+					builderDraw = freeDozer->getDrawable();
+				}
+			}
+
 			// sanity
-			if( m_currentSelectedDrawable == nullptr )
+			if( builderDraw == nullptr )
 				break;
 
 			//Kris: September 27, 2002
@@ -262,7 +276,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 			}
 
 			// tell the UI that we want to build something so we get a building at the cursor
-			TheInGameUI->placeBuildAvailable( commandButton->getThingTemplate(), m_currentSelectedDrawable );
+			TheInGameUI->placeBuildAvailable( commandButton->getThingTemplate(), builderDraw );
 
 			break;
 
@@ -726,6 +740,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 
 			if (BitIsSet(commandButton->getOptions(), NEED_TARGET_POS) == FALSE) {
 				pickAndPlayUnitVoiceResponse( TheInGameUI->getAllSelectedDrawables(), GameMessage::MSG_EVACUATE );
+				appendCommandSubsetMessage( commandButton );	// GeneralsMod
 				TheMessageStream->appendMessage( GameMessage::MSG_EVACUATE );
 			}
 
@@ -743,6 +758,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		case GUI_COMMAND_HACK_INTERNET:
 		{
 			pickAndPlayUnitVoiceResponse( TheInGameUI->getAllSelectedDrawables(), GameMessage::MSG_INTERNET_HACK );
+			appendCommandSubsetMessage( commandButton );	// GeneralsMod
 			TheMessageStream->appendMessage( GameMessage::MSG_INTERNET_HACK );
 			break;
 		}
@@ -759,6 +775,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		{
 
 			// command needs no additional data, send the message
+			appendCommandSubsetMessage( commandButton );	// GeneralsMod
 			TheMessageStream->appendMessage( GameMessage::MSG_SELL );
 			break;
 
@@ -768,6 +785,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		case GUI_COMMAND_TOGGLE_OVERCHARGE:
 		{
 
+			appendCommandSubsetMessage( commandButton );	// GeneralsMod
 			TheMessageStream->appendMessage( GameMessage::MSG_TOGGLE_OVERCHARGE );
 			break;
 
@@ -806,6 +824,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		case GUI_COMMAND_SWITCH_WEAPON:
 		{
 				// command needs no additional data, send the message
+				appendCommandSubsetMessage( commandButton );	// GeneralsMod
 				GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_SWITCH_WEAPONS );
 
 				//Play mode change acknowledgement
@@ -822,6 +841,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		case GUI_COMMAND_FIRE_WEAPON:
 		{
 			// command needs no additional data, send the message
+			appendCommandSubsetMessage( commandButton );	// GeneralsMod
 			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_DO_WEAPON );
 			msg->appendIntegerArgument( commandButton->getWeaponSlot() );
 			msg->appendIntegerArgument( commandButton->getMaxShotsToFire() );
@@ -852,6 +872,7 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 		case GUI_COMMAND_SPECIAL_POWER:
 		{
 			// command needs no additional data, send the message
+			appendCommandSubsetMessage( commandButton );	// GeneralsMod
 			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_DO_SPECIAL_POWER );
 			msg->appendIntegerArgument( commandButton->getSpecialPowerTemplate()->getID() );
 			msg->appendIntegerArgument( commandButton->getOptions() );

@@ -187,6 +187,17 @@ GameMessageDisposition PlaceEventTranslator::translateGameMessage(const GameMess
 
 				Object *builderObj = TheGameLogic->findObjectByID( TheInGameUI->getPendingPlaceSourceObjectID() );
 
+				// GeneralsMod: several same-set dozers selected -> the nearest free one takes this order,
+				// and its ID travels with the message (logic can't pick from a multi-object selection)
+				Bool multiDozerBuild = FALSE;
+				if( TheInGameUI->getSelectCount() > 1 && TheControlBar->isMultiDozerSelection() )
+				{
+					Object *chosen = TheControlBar->chooseMultiSelectBuilder( &worldStart );
+					if( chosen )
+						builderObj = chosen;
+					multiDozerBuild = ( builderObj != nullptr );
+				}
+
 				//Kris: September 27, 2002
 				//Make sure we have enough CASH to build it! It's possible that between the
 				//time we initiated it and the time we confirm it, a hacker has stolen some of
@@ -280,6 +291,12 @@ GameMessageDisposition PlaceEventTranslator::translateGameMessage(const GameMess
 					if( isLineBuild )
 					{
 						placeMsg->appendLocationArgument( worldEnd );
+					}
+					if( multiDozerBuild )
+					{
+						// GeneralsMod: trailing builder ID, read by GameLogic::onDozerConstruct
+						placeMsg->appendObjectIDArgument( builderObj->getID() );
+						TheControlBar->noteMultiSelectBuilderUsed( builderObj->getID() );
 					}
 
 					pickAndPlayUnitVoiceResponse( TheInGameUI->getAllSelectedDrawables(), placeMsg->getType() );

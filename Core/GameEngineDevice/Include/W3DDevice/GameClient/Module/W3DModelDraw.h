@@ -447,6 +447,7 @@ public:
 	virtual void onDrawableBoundToObject() override;
 	virtual void setTerrainDecalSize(Real x, Real y) override;
 	virtual void setTerrainDecalOpacity(Real o) override;
+	virtual void setTerrainDecalAngle(Real angle) override;	///< GeneralsMod @feature Dimitar 02/10/2026: see DrawModule.h
 
 protected:
 

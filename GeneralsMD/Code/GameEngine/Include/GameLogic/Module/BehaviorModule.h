@@ -74,6 +74,7 @@ class ProductionUpdateInterface;
 class HordeUpdateInterface;
 class SpecialPowerTemplate;
 class WeaponTemplate;
+class Weapon;
 class DamageInfo;
 class ParticleSystemTemplate;
 class StealthUpdate;
@@ -165,6 +166,13 @@ public:
 	virtual UpgradeModuleInterface* getUpgrade() override { return nullptr; }
   virtual StealthUpdate* getStealth() { return nullptr; }
 	virtual SpyVisionUpdate* getSpyVisionUpdate() { return nullptr; }
+
+	// GeneralsMod @feature Dimitar 09/10/2026: called on every behavior module of an object, right after
+	// that object fired one of its own WeaponSet weapons (Object::fireCurrentWeapon / linked turrets),
+	// but ONLY if some module on it called Object::registerShotFiredListener(). victimID is INVALID_ID
+	// for a ground shot. The engine notifies even when the weapon silently refused to fire (e.g. inside
+	// MinimumAttackRange) -- check weaponFired->getLastShotFrame() == now if that matters.
+	virtual void onOwnerShotFired( const Weapon* /*weaponFired*/, ObjectID /*victimID*/ ) { }
 
 	virtual ParkingPlaceBehaviorInterface* getParkingPlaceBehaviorInterface() override { return nullptr; }
 	virtual RebuildHoleBehaviorInterface* getRebuildHoleBehaviorInterface() override { return nullptr; }

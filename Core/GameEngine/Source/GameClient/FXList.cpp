@@ -537,6 +537,8 @@ public:
 		m_offset.x = m_offset.y = m_offset.z = 0;
 		m_orientToObject = false;
 		m_attachToObject = false;
+		m_attachWithOffset = false;	///< GeneralsMod @feature Dimitar 01/10/2026
+		m_ricochet = false;	///< GeneralsMod @fix Dimitar 01/10/2026: was never initialized
 		m_createAtGroundHeight = FALSE;
 		m_useCallersRadius = FALSE;
 		m_rotateX = m_rotateY = m_rotateZ = 0;
@@ -598,6 +600,7 @@ public:
 			{ "OrientToObject",				INI::parseBool,							nullptr, offsetof( ParticleSystemFXNugget, m_orientToObject ) },
 			{ "Ricochet",				      INI::parseBool,							nullptr, offsetof( ParticleSystemFXNugget, m_ricochet ) },
 			{ "AttachToObject",				INI::parseBool,							nullptr, offsetof( ParticleSystemFXNugget, m_attachToObject ) },
+			{ "AttachWithOffset",			INI::parseBool,							nullptr, offsetof( ParticleSystemFXNugget, m_attachWithOffset ) },	///< GeneralsMod @feature Dimitar 01/10/2026
 			{ "CreateAtGroundHeight",	INI::parseBool,							nullptr, offsetof( ParticleSystemFXNugget, m_createAtGroundHeight ) },
 			{ "UseCallersRadius",			INI::parseBool,							nullptr, offsetof( ParticleSystemFXNugget, m_useCallersRadius ) },
 			{ nullptr, nullptr, nullptr, 0 }
@@ -659,7 +662,25 @@ protected:
 						sys->rotateLocalTransformZ(m_rotateZ);
 
 					if (m_attachToObject && thingToAttachTo)
+					{
+						// GeneralsMod @feature Dimitar 01/10/2026: retail AttachToObject silently discards
+						// Offset/Radius/Height (setPosition() is only called in the unattached branch below).
+						// With AttachWithOffset = Yes, give the system a LOCAL position first -- the attached
+						// system concatenates its local transform onto the object's transform every frame
+						// (ParticleSystem::applyParentTransform), so the offset follows the object and rotates
+						// with it. Uses the raw, un-rotated m_offset since the parent transform does the
+						// rotation. Opt-in so retail FXLists that combine AttachToObject + Offset keep their
+						// original (offset-ignored) look.
+						if (m_attachWithOffset)
+						{
+							Coord3D localPos;
+							localPos.x = m_offset.x + radius * cos(angle);
+							localPos.y = m_offset.y + radius * sin(angle);
+							localPos.z = m_offset.z + m_height.getValue();
+							sys->setPosition( &localPos );
+						}
 						sys->attachToObject(thingToAttachTo);
+					}
 					else
 						sys->setPosition( &newPos );
 
@@ -695,6 +716,7 @@ private:
 	Real						m_rotateX, m_rotateY, m_rotateZ;
 	Bool						m_orientToObject;
 	Bool						m_attachToObject;
+	Bool						m_attachWithOffset;	///< GeneralsMod @feature Dimitar 01/10/2026: apply Offset/Radius/Height in the attached object's local space when AttachToObject = Yes
 	Bool						m_createAtGroundHeight;
 	Bool						m_useCallersRadius;
 	Bool						m_ricochet;
