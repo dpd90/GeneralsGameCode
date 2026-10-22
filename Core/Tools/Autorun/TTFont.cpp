@@ -531,7 +531,8 @@ UINT TTFontClass::Get_Double_Byte_Char	( const char *string, int *num_bytes ) co
 	//
 	//	Declared in winnls.h.
 	//--------------------------------------------------------------------------
-	if( IsDBCSLeadByte( c )&& *ptr ) {		// [OYO]
+	if( IsDBCSLeadByte( c )&& *ptr ) {
+		// [OYO]
 		c = ( c << 8 ) | *(BYTE *)ptr++;
 		if ( num_bytes != nullptr ) {
 			*num_bytes = 2;
@@ -663,7 +664,7 @@ int TTFontClass::Set_YSpacing( int y )
 
 Point2D TTFontClass::Print(
 	HDC hdc,
-	wchar_t const * string,
+	unichar const * string,
 	Rect const & cliprect,
 	COLORREF forecolor,		/* = TEXT_COLOR,		*/
 	COLORREF backcolor,		/* = TEXT_SHADOW_COLOR,	*/
@@ -683,7 +684,7 @@ Point2D TTFontClass::Print(
 
 Point2D TTFontClass::Print(
 	HDC hdc,
-	wchar_t const * string,
+	unichar const * string,
 	Rect const & cliprect,
 	COLORREF forecolor,		/* = TEXT_COLOR,		*/
 	COLORREF backcolor,		/* = TEXT_SHADOW_COLOR,	*/
@@ -1259,7 +1260,8 @@ FontManagerClass::FontManagerClass ( HDC hdc )
 		//	FW_BLACK		900
 		//---------------------------------------------------------------------
 
-		switch( LanguageID ) { 	// [OYO] Add this line if you wish to support another languages
+		switch( LanguageID ) {
+			// [OYO] Add this line if you wish to support another languages
 
 			//=================================================================
 			// JAPANESE

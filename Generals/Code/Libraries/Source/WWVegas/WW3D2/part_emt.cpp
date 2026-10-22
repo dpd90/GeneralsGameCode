@@ -549,7 +549,8 @@ void ParticleEmitterClass::Create_New_Particles(const Quaternion & curr_quat, co
 	// Since the particles are written into a wraparound buffer, we can take the time modulo a time
 	// constant which represents the time it takes to fill up the entire buffer with new particles.
 	// We will do this so we don't run into performance problems with very large frame times.
-	if (frametime > 100 * EmitRate) {	// If the loop will run over 100 times
+	if (frametime > 100 * EmitRate) {
+		// If the loop will run over 100 times
 		unsigned int buf_size = Buffer->Get_Buffer_Size();
 		unsigned int gcd = Greatest_Common_Divisor(buf_size, BurstSize);
 		unsigned int bursts = buf_size / gcd;
@@ -605,14 +606,16 @@ void ParticleEmitterClass::Create_New_Particles(const Quaternion & curr_quat, co
 			OneTimeBurst = false;
 		}
 
-		if ( ParticlesLeft > 0 ) {			// if we are counting,
+		if ( ParticlesLeft > 0 ) {
+			// if we are counting,
 			if (burst_size > (unsigned int)ParticlesLeft) {
 				burst_size = (unsigned int)ParticlesLeft;
 				ParticlesLeft = 0;
 			} else {
 				ParticlesLeft -= burst_size;
 			}
-			if ( ParticlesLeft <= 0 ) {	// count and if done
+			if ( ParticlesLeft <= 0 ) {
+				// count and if done
 				IsComplete = true;			// stop
 			}
 		}
@@ -661,7 +664,7 @@ void ParticleEmitterClass::Initialize_Particle(NewParticleStruct * newpart,
 		Vector3 outwards;
 		float pos_l2 = rand_pos.Length2();
 		if (pos_l2) {
-			outwards = rand_pos * (OutwardVel * WWMath::Inv_Sqrt(pos_l2));
+			outwards = rand_pos * (OutwardVel * WWMath::Inv_Sqrt_Legacy(pos_l2));
 		} else {
 			outwards.X = OutwardVel;
 			outwards.Y = 0.0f;

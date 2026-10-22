@@ -520,8 +520,8 @@ public:
 
 		Coord3D intermedPt;
 		Bool intermed = false;
-		Real orient = atan2(ppinfo.runwayPrep.y - ppinfo.parkingSpace.y, ppinfo.runwayPrep.x - ppinfo.parkingSpace.x);
-		if (fabs(stdAngleDiff(orient, ppinfo.parkingOrientation)) > PI/128)
+		Real orient = WWMath::Atan2(ppinfo.runwayPrep.y - ppinfo.parkingSpace.y, ppinfo.runwayPrep.x - ppinfo.parkingSpace.x);
+		if (WWMath::Fabs(stdAngleDiff(orient, ppinfo.parkingOrientation)) > PI/128)
 		{
 			intermedPt.z = (ppinfo.parkingSpace.z + ppinfo.runwayPrep.z) * 0.5f;
 			intermed = intersectInfiniteLine2D(
@@ -739,7 +739,7 @@ public:
 		m_landingSoundPlayed = FALSE;
 		if (m_landing)
 		{
-			loco->setMaxSpeed(loco->getMinSpeed());
+			loco->setMaxSpeedToMinSpeed();
 		}
 		else
 		{
@@ -1082,7 +1082,7 @@ public:
 		}
 		else
 		{
-			Real dist = sqrtf(dSqr);
+			Real dist = WWMath::Sqrtf(dSqr);
 			if (dist<1) dist = 1;
 			pos.x += PATHFIND_CELL_SIZE_F*dx/(dist*LOGICFRAMES_PER_SECOND);
 			pos.y += PATHFIND_CELL_SIZE_F*dy/(dist*LOGICFRAMES_PER_SECOND);
@@ -1210,7 +1210,7 @@ public:
 			return STATE_FAILURE;
 
 		const Real THRESH = 0.001f;
-		if (fabs(stdAngleDiff(jet->getOrientation(), ppinfo.parkingOrientation)) <= THRESH)
+		if (WWMath::Fabs(stdAngleDiff(jet->getOrientation(), ppinfo.parkingOrientation)) <= THRESH)
 			return STATE_SUCCESS;
 
 		// magically position it correctly.
@@ -2054,9 +2054,9 @@ UpdateSleepTime JetAIUpdate::update()
 			setLastCommandSource( CMD_FROM_AI );
 			getStateMachine()->setState(RETURNING_FOR_LANDING);
 		}
-		else if (getFlag(HAS_PENDING_COMMAND)
+		else if (getFlag(HAS_PENDING_COMMAND) &&
 			// srj sez: if we are reloading ammo, wait will we are done before processing the pending command.
-			&& getStateMachine()->getCurrentStateID() != RELOAD_AMMO)
+			getStateMachine()->getCurrentStateID() != RELOAD_AMMO)
 		{
 			m_returnToBaseFrame = 0;
 
@@ -2180,11 +2180,11 @@ UpdateSleepTime JetAIUpdate::update()
 		Drawable *draw = jet->getDrawable();
 		if( draw )
 		{
-			if( getFlag(TAKEOFF_IN_PROGRESS)
-					|| getFlag(LANDING_IN_PROGRESS)
-					|| getObject()->isSignificantlyAboveTerrain()
-					|| isMoving()
-					|| isWaitingForPath() )
+			if( getFlag(TAKEOFF_IN_PROGRESS) ||
+					getFlag(LANDING_IN_PROGRESS) ||
+					getObject()->isSignificantlyAboveTerrain() ||
+					isMoving() ||
+					isWaitingForPath() )
 			{
 				if( !m_enginesOn )
 				{
@@ -2231,8 +2231,8 @@ Bool JetAIUpdate::chooseLocomotorSet(LocomotorSetType wst)
 //-------------------------------------------------------------------------------------------------
 void JetAIUpdate::setLocomotorGoalNone()
 {
-	if ((getFlag(TAKEOFF_IN_PROGRESS) || getFlag(LANDING_IN_PROGRESS))
-			&& getFlag(ALLOW_AIR_LOCO) && !getFlag(ALLOW_CIRCLING))
+	if ((getFlag(TAKEOFF_IN_PROGRESS) || getFlag(LANDING_IN_PROGRESS)) &&
+			getFlag(ALLOW_AIR_LOCO) && !getFlag(ALLOW_CIRCLING))
 	{
 		Object* jet = getObject();
 		Coord3D desiredPos = *jet->getPosition();
@@ -2320,7 +2320,7 @@ void JetAIUpdate::positionLockon()
 	Real dx = getObject()->getPosition()->x - pos.x;
 	Real dy = getObject()->getPosition()->y - pos.y;
 	if (dx || dy)
-		m_lockonDrawable->setOrientation(atan2(dy, dx));
+		m_lockonDrawable->setOrientation(WWMath::Atan2(dy, dx));
 
 	// the Gaussian sum, to avoid keeping a running total:
 	//

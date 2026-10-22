@@ -341,13 +341,13 @@ void Keyboard::initKeyNames()
 
 	HKL kLayout = GetKeyboardLayout(0);
 
-	Int low = (UnsignedInt)kLayout & 0xFFFF;
+	Int low = (Int)(uintptr_t)kLayout & 0xFFFF;
 	LanguageID currentLanguage = OurLanguage;
-	if(low == 0x040c
-		 || low == 0x080c
-		 || low == 0x0c0c
-		 || low == 0x100c
-		 || low == 0x140c)
+	if(low == 0x040c ||
+		 low == 0x080c ||
+		 low == 0x0c0c ||
+		 low == 0x100c ||
+		 low == 0x140c)
 		currentLanguage = LANGUAGE_ID_FRENCH;
 
 	switch( currentLanguage )

@@ -292,7 +292,7 @@ void PolygonTrigger::updateBounds()	const
 	Real halfWidth = (m_bounds.hi.x - m_bounds.lo.x) / 2.0f;
 	Real halfHeight = (m_bounds.hi.y + m_bounds.lo.y) / 2.0f;
 
-	m_radius = sqrt(halfHeight*halfHeight + halfWidth*halfWidth);
+	m_radius = WWMath::Sqrt(halfHeight*halfHeight + halfWidth*halfWidth);
 }
 
 
@@ -370,11 +370,13 @@ void PolygonTrigger::setPoint(const ICoord3D &point, Int ndx)
 {
 	DEBUG_ASSERTCRASH(ndx>=0 && ndx <= m_numPoints, ("Invalid ndx."));
 	if (ndx<0) return;
-	if (ndx == m_numPoints) {	// we are setting first available unused point
+	if (ndx == m_numPoints) {
+		// we are setting first available unused point
 		addPoint(point);
 		return;
 	}
-	if (ndx>m_numPoints) { // Can't skip points.
+	if (ndx>m_numPoints) {
+		// Can't skip points.
 		return;
 	}
 	m_points[ndx] = point;
@@ -390,7 +392,8 @@ void PolygonTrigger::insertPoint(const ICoord3D &point, Int ndx)
 {
 	DEBUG_ASSERTCRASH(ndx>=0 && ndx <= m_numPoints, ("Invalid ndx."));
 	if (ndx<0) return;
-	if (ndx == m_numPoints) {	// we are setting first available unused point
+	if (ndx == m_numPoints) {
+		// we are setting first available unused point
 		addPoint(point);
 		return;
 	}

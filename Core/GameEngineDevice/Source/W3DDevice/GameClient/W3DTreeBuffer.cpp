@@ -1161,6 +1161,8 @@ void W3DTreeBuffer::allocateTreeBuffers()
 		m_curNumTreeVertices[i]=0;
 		m_curNumTreeIndices[i]=0;
 	}
+	// TheSuperHackers @bugfix arcticdolphin 09/10/2026 Refill the new buffers after a device reset.
+	m_anythingChanged = true;
 
 		//shader decleration
 	// DX8_FVF_XYZNDUV1
@@ -1236,7 +1238,8 @@ void W3DTreeBuffer::removeTreesForConstruction(const Coord3D* pos, const Geometr
 {
 	// Just iterate all trees, as even non-collidable ones get removed. jba. [7/11/2003]
 	Int i;
-	for (i=0; i<m_numTrees; i++) {				// small, height,							radius,									minor radius
+	for (i=0; i<m_numTrees; i++) {
+		// small, height,							radius,									minor radius
 		if (m_trees[i].treeType < 0) {
 			continue; // already deleted. jba [7/11/2003]
 		}
@@ -1350,8 +1353,8 @@ void W3DTreeBuffer::addTree(DrawableID id, Coord3D location, Real scale, Real an
 	}
 
 	Real randomScale = GameClientRandomValueReal( 1.0f - randomScaleAmount, 1.0f+ randomScaleAmount );
-	m_trees[m_numTrees].sin = WWMath::Sin(angle);
-	m_trees[m_numTrees].cos = WWMath::Cos(angle);
+	m_trees[m_numTrees].sin = WWMath::Sinf_Legacy(angle);
+	m_trees[m_numTrees].cos = WWMath::Cosf_Legacy(angle);
 	if (randomScaleAmount>0.0f) {
 		// Randomizes the scale and orientation of trees.
 		m_trees[m_numTrees].scale = scale*randomScale;
@@ -1395,8 +1398,8 @@ Bool W3DTreeBuffer::updateTreePosition(DrawableID id, Coord3D location, Real ang
 	for (i=0; i<m_numTrees; i++) {
 		if (m_trees[i].drawableID == id) {
 			m_trees[i].location = Vector3(location.x, location.y, location.z);
-			m_trees[i].sin = WWMath::Sin(angle);
-			m_trees[i].cos = WWMath::Cos(angle);
+			m_trees[i].sin = WWMath::Sinf_Legacy(angle);
+			m_trees[i].cos = WWMath::Cosf_Legacy(angle);
 			// Translate the bounding sphere of the model.
 			m_trees[i].bounds = m_treeTypes[m_trees[i].treeType].m_bounds;
 			m_trees[i].bounds.Center *= m_trees[i].scale;
@@ -1507,7 +1510,8 @@ void W3DTreeBuffer::drawTrees(CameraClass * camera, RefRenderObjListIterator *pD
 	if (m_shadow && TheW3DProjectedShadowManager && TheGlobalData->m_useShadowDecals) {
 		for (curTree=0; curTree<m_numTrees; curTree++) {
 			Int type = m_trees[curTree].treeType;
-			if (type<0) { // deleted.
+			if (type<0) {
+				// deleted.
 				continue;
 			}
 			if (!m_trees[curTree].visible || !m_treeTypes[type].m_doShadow) {
@@ -1528,7 +1532,8 @@ void W3DTreeBuffer::drawTrees(CameraClass * camera, RefRenderObjListIterator *pD
 	// Update pushed aside and toppling trees.
 	for (curTree=0; curTree<m_numTrees; curTree++) {
 		Int type = m_trees[curTree].treeType;
-		if (type<0) { // deleted.
+		if (type<0) {
+			// deleted.
 			continue;
 		}
 		const W3DTreeDrawModuleData *moduleData = m_treeTypes[type].m_data;

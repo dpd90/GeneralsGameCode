@@ -288,7 +288,8 @@ Bool W3DProjectedShadowManager::ReAcquireResources()
 		return FALSE;
 
 	if (shadowDecalVertexBufferD3D == nullptr)
-	{	// Create vertex buffer
+	{
+		// Create vertex buffer
 
 		if (FAILED(m_pDev->CreateVertexBuffer
 		(
@@ -334,7 +335,8 @@ void W3DProjectedShadowManager::updateRenderTargetTextures()
 
 	if (m_numProjectionShadows)
 	for( shadow = m_shadowList; shadow; shadow = shadow->m_next )
-	{	//decals don't need any updates on a per-frame basis since
+	{
+		//decals don't need any updates on a per-frame basis since
 		//the image never changes.
 		if (shadow->m_type != SHADOW_DECAL)
 			shadow->update();
@@ -395,7 +397,8 @@ Int W3DProjectedShadowManager::renderProjectedTerrainShadow(W3DProjectedShadow *
 		Int numVerts = vertsPerRow *vertsPerColumn;	//number of terrain vertices
 
 		if (nShadowVertsInBuf > (SHADOW_VERTEX_SIZE-numVerts))	//check if room for model verts
-		{	//flush the buffer by drawing the contents and re-locking again
+		{
+			//flush the buffer by drawing the contents and re-locking again
 			if (shadowVertexBufferD3D->Lock(0,numVerts*sizeof(SHADOW_VOLUME_VERTEX),(unsigned char**)&pvVertices,D3DLOCK_DISCARD) != D3D_OK)
 				return 0;
 			nShadowVertsInBuf=0;
@@ -428,7 +431,8 @@ Int W3DProjectedShadowManager::renderProjectedTerrainShadow(W3DProjectedShadow *
 		Int numIndex=(endX - startX) * (endY-startY)*6;	//6 indices per terrain cell (2 triangles).
 
 		if (nShadowIndicesInBuf > (SHADOW_INDEX_SIZE-numIndex))	//check if room for model verts
-		{	//flush the buffer by drawing the contents and re-locking again
+		{
+			//flush the buffer by drawing the contents and re-locking again
 			if (shadowIndexBufferD3D->Lock(0,numIndex*sizeof(short),(unsigned char**)&pvIndices,D3DLOCK_DISCARD) != D3D_OK)
 				return 0;
 			nShadowIndicesInBuf=0;
@@ -440,12 +444,14 @@ Int W3DProjectedShadowManager::renderProjectedTerrainShadow(W3DProjectedShadow *
 		}
 
 		if(pvIndices)
-		{		//fill each cell's vertex indices
+		{
+				//fill each cell's vertex indices
 				Int rowStart;
 				for (j=startY,rowStart=0; j<endY; j++,rowStart+=vertsPerRow)
 				{
 					for (i=rowStart,k=startX; k<endX; i++,k++)
-					{	///@todo: Fix this to deal with flipped triangles
+					{
+						///@todo: Fix this to deal with flipped triangles
 						hmap->getAlphaUVData(k, j, UA, VA, alpha, &flipForBlend);
 /*						if (flipForBlend)
 						{	pvIndices[0]=i;
@@ -621,7 +627,8 @@ static void RenderVBTile(TextureClass *text, Real ox, Real oy, Real ou, Real ov,
 	ib[5]=2;
 
 	if (bd == B_TR || bd == B_BL)
-	{	//need to flip triangles so alpha gradient doesn't follow diagonal edge
+	{
+		//need to flip triangles so alpha gradient doesn't follow diagonal edge
 		ib[2]=2;
 		ib[4]=0;
 	}
@@ -680,7 +687,8 @@ void W3DProjectedShadowManager::flushDecals(W3DShadowTexture *texture, ShadowTyp
 	static	Matrix4x4 mWorld(true);	//initialize to identity matrix
 
 	if (nShadowDecalVertsInBatch == 0 && nShadowDecalPolysInBatch == 0)
-	{	//nothing to render
+	{
+		//nothing to render
 		return;
 	}
 
@@ -839,13 +847,15 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 				const Object *object=draw->getObject();
 				PathfindLayerEnum objectLayer;
 				if (object && (objectLayer=object->getLayer()) != LAYER_GROUND)
-				{	//check if object that this decal belongs to is not on the ground (bridge?)
+				{
+					//check if object that this decal belongs to is not on the ground (bridge?)
 					layerHeight=BRIDGE_OFFSET_FACTOR+TheTerrainLogic->getLayerHeight(objPos.X,objPos.Y,objectLayer);
 				}
 			}
 		}
 		else
-		{	//no render object so use shadow's local position and default orientation
+		{
+			//no render object so use shadow's local position and default orientation
 			objPos.Set(shadow->m_x,shadow->m_y,shadow->m_z);
 			objXform.Rotate_Z(shadow->m_localAngle);
 		}
@@ -924,7 +934,8 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 */
 //	  Experimental code to try and get a better fitting bounding box around shadow
 	/*  Experimental code to try and get a better fitting bounding box around shadow
-	{	//use the object's bounding box to determine shadow extent
+	{
+		//use the object's bounding box to determine shadow extent
 		///@todo: Most of the values below can be cached in shadow object
 		uVector=objXform.Get_X_Vector();
 		uVector.Z=0;
@@ -978,7 +989,8 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 		//enough to cover typical map.
 		Int numExtraX=(endX - startX+1)-104;
 		if (numExtraX > 0)
-		{	//figure out how much to clip out at each edge of decal
+		{
+			//figure out how much to clip out at each edge of decal
 			Int numStartExtraX=REAL_TO_INT_FLOOR((float)numExtraX/2.0f);
 			Int numEdgeExtraX=numExtraX-numStartExtraX;
 			startX+=numStartExtraX;
@@ -1007,7 +1019,8 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 		UnsignedShort *pvIndices;
 
 		if (nShadowDecalVertsInBuf > (SHADOW_DECAL_VERTEX_SIZE-numVerts))	//check if room for model verts
-		{	//flush the buffer by drawing the contents and re-locking again
+		{
+			//flush the buffer by drawing the contents and re-locking again
 			flushDecals(shadow->m_shadowTexture[0], shadow->m_type);
 			if (shadowDecalVertexBufferD3D->Lock(0,numVerts*sizeof(SHADOW_DECAL_VERTEX),(unsigned char**)&pvVertices,D3DLOCK_DISCARD) != D3D_OK)
 				return;
@@ -1079,7 +1092,8 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 		shadowDecalVertexBufferD3D->Unlock();
 
 		if (nShadowDecalIndicesInBuf > (SHADOW_DECAL_INDEX_SIZE-numIndex))	//check if room for model verts
-		{	//flush the buffer by drawing the contents and re-locking again
+		{
+			//flush the buffer by drawing the contents and re-locking again
 			flushDecals(shadow->m_shadowTexture[0], shadow->m_type);
 
 			if (shadowDecalIndexBufferD3D->Lock(0,numIndex*sizeof(short),(unsigned char**)&pvIndices,D3DLOCK_DISCARD) != D3D_OK)
@@ -1096,7 +1110,8 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 		}
 
 		if(pvIndices)
-		{	//fill each cell's vertex indices
+		{
+			//fill each cell's vertex indices
 			Int rowStart;
 			for (j=startY,rowStart=0; j<endY; j++,rowStart+=vertsPerRow)
 			{
@@ -1179,7 +1194,8 @@ void W3DProjectedShadowManager::queueSimpleDecal(W3DProjectedShadow *shadow)
 		UnsignedShort *pvIndices;
 
 		if (nShadowDecalVertsInBuf > (SHADOW_DECAL_VERTEX_SIZE-numVerts))	//check if room for model verts
-		{	//flush the buffer by drawing the contents and re-locking again
+		{
+			//flush the buffer by drawing the contents and re-locking again
 			flushDecals(shadow->m_shadowTexture[0], shadow->m_type);
 			if (shadowDecalVertexBufferD3D->Lock(0,numVerts*sizeof(SHADOW_DECAL_VERTEX),(unsigned char**)&pvVertices,D3DLOCK_DISCARD) != D3D_OK)
 				return;
@@ -1240,7 +1256,8 @@ void W3DProjectedShadowManager::queueSimpleDecal(W3DProjectedShadow *shadow)
 		shadowDecalVertexBufferD3D->Unlock();
 
 		if (nShadowDecalIndicesInBuf > (SHADOW_DECAL_INDEX_SIZE-numIndex))	//check if room for model verts
-		{	//flush the buffer by drawing the contents and re-locking again
+		{
+			//flush the buffer by drawing the contents and re-locking again
 			flushDecals(shadow->m_shadowTexture[0],shadow->m_type);
 
 			if (shadowDecalIndexBufferD3D->Lock(0,numIndex*sizeof(short),(unsigned char**)&pvIndices,D3DLOCK_DISCARD) != D3D_OK)
@@ -1348,7 +1365,8 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 					}
 					///@todo: may need to fix this if shadows are large enough to be seen while object is not visible
 					if (shadow->m_robj->Is_Really_Visible())
-					{	//queueSimpleDecal(shadow);
+					{
+						//queueSimpleDecal(shadow);
 						queueDecal(shadow);	//only draw shadow if casting object is visible
 						projectionCount++;
 					}
@@ -1361,7 +1379,8 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 
 				CollisionMath::OverlapType result=CollisionMath::Overlap_Test(*shadowCameraFrustum,sphere);
 				if (result == CollisionMath::OVERLAPPED)
-				{	//do a more accurate test against bounding box.
+				{
+					//do a more accurate test against bounding box.
 					aaBox=shadow->m_shadowTexture[0]->getBoundingBox();
 					aaBox.Translate(shadow->m_robj->Get_Position());	//translate bounding box to world space.
 					if (CollisionMath::Overlap_Test(*shadowCameraFrustum,aaBox) == CollisionMath::OUTSIDE)
@@ -1515,7 +1534,8 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 				// original engine behavior (visible stays TRUE from its initialization above).
 
 				if (visible)
-				{	//queueSimpleDecal(shadow);
+				{
+					//queueSimpleDecal(shadow);
 					queueDecal(shadow);	//only draw decal if casting object (if any) is visible, decal itself is on-screen, and not shrouded
 					projectionCount++;
 				}
@@ -1614,7 +1634,8 @@ Shadow* W3DProjectedShadowManager::addDecal(Shadow::ShadowTypeInfo *shadowInfo)
 	for( nextShadow = m_decalList; nextShadow; prevShadow=nextShadow,nextShadow = nextShadow->m_next )
 	{
 		if (nextShadow->m_shadowTexture[0]==st)
-		{	//found start of other shadows using same texture, insert new shadow here.
+		{
+			//found start of other shadows using same texture, insert new shadow here.
 			shadow->m_next=nextShadow;
 			if (prevShadow)
 			{	prevShadow->m_next=shadow;
@@ -1626,7 +1647,8 @@ Shadow* W3DProjectedShadowManager::addDecal(Shadow::ShadowTypeInfo *shadowInfo)
 	}
 
 	if (nextShadow==nullptr)
-	{	//shadow with new texture. Add to top of list.
+	{
+		//shadow with new texture. Add to top of list.
 		shadow->m_next = m_decalList;
 		m_decalList = shadow;
 	}
@@ -1737,7 +1759,8 @@ Shadow* W3DProjectedShadowManager::addDecal(RenderObjClass *robj, Shadow::Shadow
 	for( nextShadow = m_decalList; nextShadow; prevShadow=nextShadow,nextShadow = nextShadow->m_next )
 	{
 		if (nextShadow->m_shadowTexture[0]==st)
-		{	//found start of other shadows using same texture, insert new shadow here.
+		{
+			//found start of other shadows using same texture, insert new shadow here.
 			shadow->m_next=nextShadow;
 			if (prevShadow)
 			{	prevShadow->m_next=shadow;
@@ -1749,7 +1772,8 @@ Shadow* W3DProjectedShadowManager::addDecal(RenderObjClass *robj, Shadow::Shadow
 	}
 
 	if (nextShadow==nullptr)
-	{	//shadow with new texture. Add to top of list.
+	{
+		//shadow with new texture. Add to top of list.
 		shadow->m_next = m_decalList;
 		m_decalList = shadow;
 	}
@@ -1781,7 +1805,8 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 	{
 		//determine what kind of shadow is needed
 		if (shadowInfo->m_type==SHADOW_DECAL)
-		{		//simple decal using the premade texture specified.
+		{
+				//simple decal using the premade texture specified.
 				//can be always perpendicular to model's z-axis or projected
 				//onto world geometry.
 				if (strlen(shadowInfo->m_ShadowName) <= 1)	//no texture name given, use same as object
@@ -1825,11 +1850,13 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 		}
 		else
 		if (shadowInfo->m_type==SHADOW_PROJECTION)
-		{		//projection of object geometry into a texture.
+		{
+				//projection of object geometry into a texture.
 				//can be applied on a plane horizontal to model's z-axis or
 				//projected onto world geometry.
 				if (shadowInfo->m_ShadowName[0] != '\0')
-				{	//the shadow will be based on another render object
+				{
+					//the shadow will be based on another render object
 					//to allow multiple models to share same shadow - for
 					//example, all trees could use same shadow even if slightly
 					//different color, etc.
@@ -1841,7 +1868,8 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 
 				st=m_W3DShadowTextureManager->getTexture(texture_name);
 				if (st == nullptr)
-				{	//texture doesn't exist, use current render object to create it
+				{
+					//texture doesn't exist, use current render object to create it
 					m_W3DShadowTextureManager->createTexture(robj,texture_name);
 					//try loading again
 					st=m_W3DShadowTextureManager->getTexture(texture_name);
@@ -1855,13 +1883,15 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 		}
 	}
 	else
-	{	//no shadow info, assume user wants a projected shadow
+	{
+		//no shadow info, assume user wants a projected shadow
 		strlcpy(texture_name, robj->Get_Name(), ARRAY_SIZE(texture_name));
 
 		st=m_W3DShadowTextureManager->getTexture(texture_name);
 
 		if (st==nullptr)
-		{	//did not find a cached copy of the shadow geometry, create a new one
+		{
+			//did not find a cached copy of the shadow geometry, create a new one
 			m_W3DShadowTextureManager->createTexture(robj,texture_name);
 			//try loading again
 			st=m_W3DShadowTextureManager->getTexture(texture_name);
@@ -1926,7 +1956,8 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 	for( nextShadow = m_shadowList; nextShadow; prevShadow=nextShadow,nextShadow = nextShadow->m_next )
 	{
 		if (nextShadow->m_shadowTexture[0]==st)
-		{	//found start of other shadows using same texture, insert new shadow here.
+		{
+			//found start of other shadows using same texture, insert new shadow here.
 			shadow->m_next=nextShadow;
 			if (prevShadow)
 			{	prevShadow->m_next=shadow;
@@ -1938,7 +1969,8 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 	}
 
 	if (nextShadow==nullptr)
-	{	//shadow with new texture. Add to top of list.
+	{
+		//shadow with new texture. Add to top of list.
 		shadow->m_next = m_shadowList;
 		m_shadowList = shadow;
 	}
@@ -2181,14 +2213,20 @@ void W3DProjectedShadow::updateTexture(Vector3 &lightPos)
 {
 	SpecialRenderInfoClass *context;
 	//default uv coordinates before rotation starting at top/left going clockwise
-	static Vector2 uvData[4]={Vector2(-0.5,-0.5f),Vector2(-0.5,0.5f),Vector2(0.5f,0.5f),Vector2(-0.5f,0.5f)};
+	static Vector2 uvData[4]={
+		Vector2(-0.5,-0.5f),
+		Vector2(-0.5,0.5f),
+		Vector2(0.5f,0.5f),
+		Vector2(-0.5f,0.5f)
+	};
 
 	//force light always 2000 units from object - for some reason projection fails if
 	//light is too far.
 	///@todo: See why infinite light sources don't project shadows correctly.
 
 	if (m_type == SHADOW_PROJECTION)
-	{	//projected shadows use custom runtime generated textures based on object geometry
+	{
+		//projected shadows use custom runtime generated textures based on object geometry
 		Vector3 objPos=m_robj->Get_Position();
 		if (objPos == Vector3(0,0,0))
 			return; //render object does not have a valid position (never rendered).
@@ -2205,7 +2243,10 @@ void W3DProjectedShadow::updateTexture(Vector3 &lightPos)
 
 		context->light_environment->Reset(m_robj->Get_Position(), Vector3(0,0,0));
 
-		m_shadowProjector->Compute_Texture(m_robj,context);
+		if (!m_shadowProjector->Compute_Texture(m_robj,context))
+		{
+			return;
+		}
 
 		//Need to copy generated texture into permanent texture.
 		SurfaceClass *oldSurface=m_shadowTexture[0]->getTexture()->Get_Surface_Level();
@@ -2219,7 +2260,8 @@ void W3DProjectedShadow::updateTexture(Vector3 &lightPos)
 	}
 	else
 	if (m_type == SHADOW_DECAL)
-	{	//decal shadows use artist supplied textures.  We just need to tweak the uv coordinates to match
+	{
+		//decal shadows use artist supplied textures.  We just need to tweak the uv coordinates to match
 		//the light direction.
 		Vector3 objPos=m_robj->Get_Position();
 		Vector3 objectToLight;
@@ -2264,11 +2306,13 @@ void W3DProjectedShadow::updateProjectionParameters(const Matrix3D &cameraXform)
 void W3DProjectedShadow::update()
 {
 	if (m_shadowTexture[0]->getLightPosHistory() != TheW3DShadowManager->getLightPosWorld(0))
-	{	//light has moved since last time this shadow was calculated. Need update
+	{
+		//light has moved since last time this shadow was calculated. Need update
 		updateTexture(TheW3DShadowManager->getLightPosWorld(0));
 	}
 	if (m_lastObjPosition != m_robj->Get_Position())
-	{	//object has moved.  Texture stays the same but projection matrix needs updating.
+	{
+		//object has moved.  Texture stays the same but projection matrix needs updating.
 		//force light always 2000 units from object - for some reason projection fails if
 		//light is too far.
 		///@todo: See why infinite light sources don't project shadows correctly.
@@ -2489,11 +2533,13 @@ int W3DShadowTextureManager::createTexture(RenderObjClass *robj, const char *nam
 	res=newTexture->init(robj);
 
 	if (res != TRUE)
-	{	// load failed!
+	{
+		// load failed!
 		newTexture->Release_Ref();
 		goto Error;
 	} else if (peekTexture(newTexture->Get_Name()) != nullptr)
-	{	// duplicate exists!
+	{
+		// duplicate exists!
 		newTexture->Release_Ref();	// Release the one we just loaded
 		goto Error;
 	} else

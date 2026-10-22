@@ -83,7 +83,7 @@ static_assert(ARRAY_SIZE(TheWeaponSlotTypeNamesLookupList) == WEAPONSLOT_COUNT +
 
 //Purpose: Whenever you change a weaponset, the model condition state associated with it
 //will be properly set exclusively.
-static const ModelConditionFlagType TheWeaponSetTypeToModelConditionTypeMap[WEAPONSET_COUNT] =
+static const ModelConditionFlagType TheWeaponSetTypeToModelConditionTypeMap[] =
 {
 	/*WEAPONSET_VETERAN*/								MODELCONDITION_WEAPONSET_VETERAN,
 	/*WEAPONSET_ELITE*/									MODELCONDITION_WEAPONSET_ELITE,
@@ -129,6 +129,7 @@ static const ModelConditionFlagType TheWeaponSetTypeToModelConditionTypeMap[WEAP
 	/*WEAPONSET_RIDER31*/								MODELCONDITION_RIDER31,
 	/*WEAPONSET_RIDER32*/								MODELCONDITION_RIDER32,
 };
+static_assert(ARRAY_SIZE(TheWeaponSetTypeToModelConditionTypeMap) == WEAPONSET_COUNT, "Incorrect array size");
 #endif
 
 //-------------------------------------------------------------------------------------------------
