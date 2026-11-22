@@ -212,6 +212,7 @@ enum WeaponBonusConditionType CPP_11(: Int)
 	WEAPONBONUSCONDITION_FRENZY_ONE,
 	WEAPONBONUSCONDITION_FRENZY_TWO,
 	WEAPONBONUSCONDITION_FRENZY_THREE,
+	WEAPONBONUSCONDITION_EMP_CHARGED,	///< GeneralsMod @feature Dimitar 22/10/2026: EMP support aura (projectile-only spark bonus)
 
 	WEAPONBONUSCONDITION_COUNT
 };
@@ -250,6 +251,7 @@ static const char *const TheWeaponBonusNames[] =
 	"FRENZY_ONE",
 	"FRENZY_TWO",
 	"FRENZY_THREE",
+	"EMP_CHARGED",	///< GeneralsMod @feature Dimitar 22/10/2026
 
 	nullptr
 };
@@ -862,6 +864,12 @@ public:
 
 	void handleProjectileDetonation( const WeaponTemplate* w, const Object *source, const Coord3D* pos, WeaponBonusConditionFlags extraBonusFlags, Bool inflictDamage = TRUE );
 
+	// GeneralsMod @feature Dimitar 22/10/2026: per-condition FX/OCL played where a projectile detonates, if the projectile
+	// was fired while its launcher had that WeaponBonusCondition (projectiles carry the launcher's flags as extraBonusFlags).
+	// Registered by WeaponBonusUpdateV2 (DetonationFX / DetonationOCL). One FX/OCL set per condition: the first
+	// registration wins and a conflicting one DEBUG_CRASHes. Cleared on reset().
+	void registerBonusDetonationEffect( WeaponBonusConditionType cond, const FXList* fx, const ObjectCreationList* ocl, const AsciiString& ownerName );
+
 	static void parseWeaponTemplateDefinition(INI* ini);
 
 protected:
@@ -901,6 +909,16 @@ private:
 	WeaponTemplateMap m_weaponTemplateHashMap;
 
 	std::list<WeaponDelayedDamageInfo> m_weaponDDI;
+
+	// GeneralsMod @feature Dimitar 22/10/2026: see registerBonusDetonationEffect()
+	struct BonusDetonationEffect
+	{
+		const FXList*							m_fx;
+		const ObjectCreationList*	m_ocl;
+		AsciiString								m_ownerName;	///< template that registered it, for the conflict message
+	};
+	BonusDetonationEffect m_bonusDetonationEffects[ WEAPONBONUSCONDITION_COUNT ];
+	void clearBonusDetonationEffects();
 };
 
 // EXTERNALS //////////////////////////////////////////////////////////////////////////////////////

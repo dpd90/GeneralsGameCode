@@ -325,6 +325,14 @@ void W3DTruckDraw::setHidden(Bool h)
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 09/11/2026: our W3DModelDraw RequiredConditions/ForbiddenConditions gate just closed --
+// stop our own emitters (setHidden() is not called virtually for the gate; see applyConditionGate()).
+void W3DTruckDraw::onConditionGateClosed()
+{
+	enableWheelEmitters(false);
+}
+
+//-------------------------------------------------------------------------------------------------
 void W3DTruckDraw::onRenderObjRecreated()
 {
 	//DEBUG_LOG(("Old obj %x, newObj %x, new bones %d, old bones %d",

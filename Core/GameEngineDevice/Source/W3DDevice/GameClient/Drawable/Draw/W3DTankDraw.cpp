@@ -194,6 +194,14 @@ void W3DTankDraw::setHidden(Bool h)
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 09/11/2026: our W3DModelDraw RequiredConditions/ForbiddenConditions gate just closed --
+// stop our own emitters (setHidden() is not called virtually for the gate; see applyConditionGate()).
+void W3DTankDraw::onConditionGateClosed()
+{
+	stopMoveDebris();
+}
+
+//-------------------------------------------------------------------------------------------------
 void W3DTankDraw::setFullyObscuredByShroud(Bool fullyObscured)
 {
 	if (fullyObscured != getFullyObscuredByShroud())

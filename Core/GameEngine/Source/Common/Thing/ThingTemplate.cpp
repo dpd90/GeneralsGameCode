@@ -1584,6 +1584,11 @@ Int ThingTemplate::calcTimeToBuild( const Player* player) const
 	Real factionModifier = 1 + player->getProductionTimeChangePercent( getName() );
 	buildTime *= factionModifier;
 
+#if RTS_ZEROHOUR
+	// GeneralsMod @feature Dimitar 10/11/2026: kindof build time modifiers (BuildTimeModifierPowerV2)
+	buildTime *= player->getProductionTimeChangeBasedOnKindOf( m_kindof );
+#endif
+
 #if defined(RTS_DEBUG) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
 	if( player->buildsInstantly() )
 	{

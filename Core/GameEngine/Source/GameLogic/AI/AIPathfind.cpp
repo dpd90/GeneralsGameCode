@@ -4289,8 +4289,14 @@ Path *Pathfinder::internal_findHierarchicalPath( Bool isHuman, const LocomotorSu
 	}
 #endif
 
-	DEBUG_LOG(("%d FindHierarchicalPath failed from (%f,%f) to (%f,%f) --", TheGameLogic->getFrame(), from->x, from->y, to->x, to->y));
-	DEBUG_LOG(("time %f", (::GetTickCount()-startTimeMS)/1000.0f));
+	// Set to true to log hierarchical (coarse) pathfind failures. Off by default: these are
+	// harmless (the full A* search still runs afterwards) and very spammy during group moves.
+	static const Bool s_logHierarchicalPathFailures = false;
+	if (s_logHierarchicalPathFailures)
+	{
+		DEBUG_LOG(("%d FindHierarchicalPath failed from (%f,%f) to (%f,%f) --", TheGameLogic->getFrame(), from->x, from->y, to->x, to->y));
+		DEBUG_LOG(("time %f", (::GetTickCount()-startTimeMS)/1000.0f));
+	}
 
 #ifdef DUMP_PERF_STATS
 	TheGameLogic->incrementOverallFailedPathfinds();

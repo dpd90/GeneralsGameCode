@@ -295,6 +295,23 @@ Bool SpawnBehavior::maySpawnSelfTaskAI( Real maxSelfTaskersRatio )
 }
 
 // ------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 02/11/2026 -- formation slot lookup for SlavedFollowUpdateV2.
+//-------------------------------------------------------------------------------------------------
+Int SpawnBehavior::getSlaveIndex( ObjectID slaveID, Int *outCount ) const
+{
+	Int index = -1;
+	Int i = 0;
+	for( objectIDList::const_iterator it = m_spawnIDs.begin(); it != m_spawnIDs.end(); ++it, ++i )
+	{
+		if( *it == slaveID )
+			index = i;
+	}
+	if( outCount )
+		*outCount = i;
+	return index;
+}
+
+//-------------------------------------------------------------------------------------------------
 Object* SpawnBehavior::getClosestSlave( const Coord3D *pos )
 {
 	Object *closest = nullptr;

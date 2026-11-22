@@ -1345,8 +1345,13 @@ protected:
 		}
 
 #if !(RETAIL_COMPATIBLE_CRC || PRESERVE_NO_XP_FROM_OCL_KILLS)
-		ObjectID sinkID = sourceObj->getExperienceTracker()->getExperienceSink();
-		firstObject->getExperienceTracker()->setExperienceSink(sinkID != INVALID_ID ? sinkID : sourceObj->getID());
+		// GeneralsMod @bugfix Dimitar 26/10/2026: mirrored from GeneralsMD. PRESERVE_NO_XP_FROM_OCL_KILLS (Core GameDefines.h)
+		// is now 0, which enables this block for the base game too; guard the null cases that crashed there.
+		if( firstObject && sourceObj && firstObject->getExperienceTracker() && sourceObj->getExperienceTracker() )
+		{
+			ObjectID sinkID = sourceObj->getExperienceTracker()->getExperienceSink();
+			firstObject->getExperienceTracker()->setExperienceSink(sinkID != INVALID_ID ? sinkID : sourceObj->getID());
+		}
 #endif
 
 		if (container)

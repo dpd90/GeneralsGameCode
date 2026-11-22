@@ -35,6 +35,7 @@
 #include <WWMath/matrix3d.h>
 #include <WWMath/vector3.h>
 
+#include <string.h>
 #include <vector>
 
 namespace
@@ -194,5 +195,43 @@ Bool GetBreakApartSubObjectLocalCenter( const AsciiString& modelName, const Asci
 	targetSub->Get_Obj_Space_Bounding_Box( subBox );
 	*outLocalCenter = subBox.Center;
 	REF_PTR_RELEASE( targetSub );
+	return true;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 26/10/2026: see BreakApartModelHelper.h.
+//-------------------------------------------------------------------------------------------------
+Bool GetBreakApartBoneSubObjectNames( const AsciiString& modelName, const AsciiString& boneName, std::vector<AsciiString>* outSubObjectNames )
+{
+	RenderObjClass* renderObj = findOrLoadBreakApartModel( modelName );
+	if( renderObj == nullptr )
+		return false;
+
+	const HTreeClass* htree = renderObj->Get_HTree();
+	if( htree == nullptr )
+		return false;
+
+	int boneIndex = htree->Get_Bone_Index( boneName.str() );
+	if( boneIndex == 0 && boneName.compareNoCase( htree->Get_Bone_Name( 0 ) ) != 0 )
+		return false;
+
+	int count = renderObj->Get_Num_Sub_Objects_On_Bone( boneIndex );
+	for( int i = 0; i < count; ++i )
+	{
+		RenderObjClass* sub = renderObj->Get_Sub_Object_On_Bone( i, boneIndex );
+		if( sub == nullptr )
+			continue;
+
+		const char* fullName = sub->Get_Name();
+		if( fullName != nullptr )
+		{
+			const char* shortName = strchr( fullName, '.' );
+			shortName = (shortName != nullptr) ? shortName + 1 : fullName;
+			outSubObjectNames->push_back( AsciiString( shortName ) );
+		}
+
+		REF_PTR_RELEASE( sub );
+	}
+
 	return true;
 }

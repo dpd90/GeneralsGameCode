@@ -1138,7 +1138,7 @@ UnsignedInt WeaponSet::getMostPercentReadyToFireAnyWeapon() const
 //-------------------------------------------------------------------------------------------------
 // A special type of command demands that you use this (normally unchooseable) weapon
 // until told otherwise.
-Bool WeaponSet::setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockType )
+Bool WeaponSet::setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockType, const Object *owner )
 {
 	if (lockType == NOT_LOCKED)
 	{
@@ -1171,7 +1171,45 @@ Bool WeaponSet::setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockTyp
 		return true;
 	}
 
-	DEBUG_CRASH(("setWeaponLock: weapon %d not found (missing an upgrade?)", (Int)weaponSlot));
+#ifdef DEBUG_CRASHING
+	{
+		// GeneralsMod @debug: say which unit, which slot, what it currently has, and which weapon-set
+		// flags are active, so the missing upgrade / condition can be identified.
+		AsciiString slots;
+		for( Int i = 0; i < WEAPONSLOT_COUNT; ++i )
+		{
+			if( !slots.isEmpty() )
+				slots.concat( ", " );
+			slots.concat( TheWeaponSlotTypeNames[i] );
+			slots.concat( "=" );
+			slots.concat( m_weapons[i] ? m_weapons[i]->getName().str() : "none" );
+		}
+
+		AsciiString flags;
+		if( owner )
+		{
+			const WeaponSetFlags &f = owner->getWeaponSetFlags();
+			for( Int i = 0; i < f.size(); ++i )
+			{
+				const char *bitName = f.getBitNameIfSet( i );
+				if( bitName )
+				{
+					if( !flags.isEmpty() )
+						flags.concat( " " );
+					flags.concat( bitName );
+				}
+			}
+		}
+		if( flags.isEmpty() )
+			flags = "NONE";
+
+		DEBUG_CRASH(("setWeaponLock: weapon %d (%s) not found (missing an upgrade?) -- unit '%s' (id %d), lock %s, current weapons [%s], active WeaponSet flags [%s]",
+			(Int)weaponSlot, TheWeaponSlotTypeNames[weaponSlot],
+			owner ? owner->getTemplate()->getName().str() : "<unknown>", owner ? (Int)owner->getID() : 0,
+			lockType == LOCKED_PERMANENTLY ? "PERMANENT" : "TEMPORARY",
+			slots.str(), flags.str()));
+	}
+#endif
 	return false;
 }
 

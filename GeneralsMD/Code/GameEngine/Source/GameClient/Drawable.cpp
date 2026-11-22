@@ -245,6 +245,15 @@ const RGBColor FRENZY_COLOR_INFANTRY				= { 0.0f, -0.7f, -0.7f};
 const Int MAX_ENABLED_MODULES								= 16;
 
 // ------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 22/10/2026: the vanilla FRENZY tint for this drawable, so TempWeaponBonusHelper can
+// add it into its blended tint for conditions applied by WeaponBonusUpdate (V1), keeping their vanilla look.
+// ------------------------------------------------------------------------------------------------
+RGBColor Drawable::getDefaultFrenzyTintColor() const
+{
+	return isKindOf( KINDOF_INFANTRY ) ? FRENZY_COLOR_INFANTRY : FRENZY_COLOR;
+}
+
+// ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 
 /*static*/ Bool							Drawable::s_staticImagesInited = false;
@@ -420,6 +429,7 @@ Drawable::Drawable( const ThingTemplate *thingTemplate, DrawableStatusBits statu
 	m_frenzyTintColorOverride.red = 0.0f;
 	m_frenzyTintColorOverride.green = 0.0f;
 	m_frenzyTintColorOverride.blue = 0.0f;
+	m_frenzyTintColorDirty = FALSE;///< GeneralsMod @feature Dimitar 22/10/2026
 
 #ifdef DIRTY_CONDITION_FLAGS
 	m_isModelDirty = true;
@@ -1243,7 +1253,10 @@ void Drawable::updateDrawable(Real timeScale)
 
 	//Lets figure out whether we should be changing colors right about now
 	// we'll use an ifelseif ladder since we are scanning bits
-	if( m_prevTintStatus != m_tintStatus )// edge test
+	// GeneralsMod @feature Dimitar 22/10/2026: also re-run the ladder when the blended FRENZY color changed while the
+	// status bits did not (TempWeaponBonusHelper stacking). The ladder keeps its precedence (DISABLED / SUBDUAL first),
+	// and TintEnvelope::play() fades from the current color, so this is a smooth transition, not a pop.
+	if( m_prevTintStatus != m_tintStatus || m_frenzyTintColorDirty )// edge test
 	{
 		if ( testTintStatus( TINT_STATUS_DISABLED ) )
 		{
@@ -1295,6 +1308,7 @@ void Drawable::updateDrawable(Real timeScale)
 	}
 
 	m_prevTintStatus = m_tintStatus;//for next frame
+	m_frenzyTintColorDirty = FALSE;///< GeneralsMod @feature Dimitar 22/10/2026
 
 	if ( obj )
 	{
@@ -2665,6 +2679,10 @@ void Drawable::draw()
 
 	for (DrawModule** dm = getDrawModules(); *dm; ++dm)
 	{
+		// GeneralsMod @feature Dimitar 09/11/2026: a W3DModelDraw whose RequiredConditions/ForbiddenConditions gate is closed is
+		// fully off -- skipping here also stops subclass per-frame work (treads, wheels, dust, Overlord riders).
+		if ((*dm)->isDrawModuleSuppressed())
+			continue;
 		(*dm)->doDrawModule(&transformMtx);
 	}
 }

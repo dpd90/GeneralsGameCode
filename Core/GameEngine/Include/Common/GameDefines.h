@@ -45,7 +45,7 @@
 #endif
 
 #ifndef PRESERVE_NO_XP_FROM_OCL_KILLS
-#define PRESERVE_NO_XP_FROM_OCL_KILLS (1)
+#define PRESERVE_NO_XP_FROM_OCL_KILLS (0) // GeneralsMod @feature Dimitar 25/10/2026: OCL-created objects pass kill XP up to whoever created them (e.g. WeaponBonusUpdateV2 DetonationOCL damage -> the unit that fired the projectile)
 #endif
 
 #ifndef PRESERVE_NO_XP_FROM_POISON_KILLS

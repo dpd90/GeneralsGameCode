@@ -321,8 +321,19 @@ public:
 	// GeneralsMod @feature Dimitar 08/09/2026: lets WeaponBonusUpdateV2 (see WeaponBonusUpdateV2.h) supply a custom
 	// TINT_STATUS_FRENZY color instead of the hardcoded FRENZY_COLOR / FRENZY_COLOR_INFANTRY constants. Unused by
 	// anything else, so it has no effect unless something explicitly sets it.
-	void setFrenzyTintColorOverride( const RGBColor &color ) { m_hasFrenzyTintColorOverride = TRUE; m_frenzyTintColorOverride = color; }
-	void clearFrenzyTintColorOverride() { m_hasFrenzyTintColorOverride = FALSE; }
+	// GeneralsMod @feature Dimitar 22/10/2026: TempWeaponBonusHelper now blends the tints of every active condition into
+	// this one override and may change it while TINT_STATUS_FRENZY stays set, so a color change marks the tint dirty and
+	// the tint ladder in updateDrawable() re-plays the envelope (smooth fade to the new color) without a status edge.
+	void setFrenzyTintColorOverride( const RGBColor &color )
+	{
+		if( !m_hasFrenzyTintColorOverride || m_frenzyTintColorOverride.red != color.red
+			|| m_frenzyTintColorOverride.green != color.green || m_frenzyTintColorOverride.blue != color.blue )
+			m_frenzyTintColorDirty = TRUE;
+		m_hasFrenzyTintColorOverride = TRUE;
+		m_frenzyTintColorOverride = color;
+	}
+	void clearFrenzyTintColorOverride() { if( m_hasFrenzyTintColorOverride ) m_frenzyTintColorDirty = TRUE; m_hasFrenzyTintColorOverride = FALSE; }
+	RGBColor getDefaultFrenzyTintColor() const;	///< GeneralsMod @feature Dimitar 22/10/2026: FRENZY_COLOR / FRENZY_COLOR_INFANTRY for this drawable
 	Bool hasFrenzyTintColorOverride() const { return m_hasFrenzyTintColorOverride; }
 	const RGBColor &getFrenzyTintColorOverride() const { return m_frenzyTintColorOverride; }
 
@@ -714,10 +725,11 @@ private:
 	UnsignedInt m_prevTintStatus;///< for edge testing with m_tintStatus
 
 	// GeneralsMod @feature Dimitar 08/09/2026: see setFrenzyTintColorOverride(). Deliberately not xfer'd: it is a
-	// purely cosmetic override, so after a save/load a unit still mid-effect will cosmetically show the default
-	// frenzy color until the effect ends (the underlying bonus/timer are unaffected).
+	// purely cosmetic override. (22/10/2026: TempWeaponBonusHelper now saves its per-condition tints and re-applies the
+	// blended color in its loadPostProcess(), so the correct color is restored after a load.)
 	Bool m_hasFrenzyTintColorOverride;
 	RGBColor m_frenzyTintColorOverride;
+	Bool m_frenzyTintColorDirty;	///< GeneralsMod @feature Dimitar 22/10/2026: override changed, re-play the FRENZY tint envelope (not xfer'd)
 
 	enum FadingMode
 	{

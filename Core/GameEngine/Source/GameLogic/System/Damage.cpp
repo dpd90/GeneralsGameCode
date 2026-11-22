@@ -95,6 +95,8 @@ const char* const DamageTypeFlags::s_bitNameList[] =
 	"OVERTIME6",
 	"OVERTIME7",
 	"OVERTIME8",
+	"PURE",			///< GeneralsMod @feature Dimitar 14/11/2026
+	"LIGHTNING",	///< GeneralsMod @feature Dimitar 14/11/2026
 
 	nullptr
 };

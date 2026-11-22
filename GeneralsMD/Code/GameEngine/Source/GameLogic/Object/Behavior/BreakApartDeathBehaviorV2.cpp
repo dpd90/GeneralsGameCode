@@ -36,6 +36,7 @@
 #include "Common/Thing.h"
 #include "Common/Xfer.h"
 #include "GameClient/BreakApartModelHelper.h"
+#include "GameLogic/BreakApartDebrisHelper.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/FXList.h"
 #include "GameLogic/Damage.h"
@@ -123,24 +124,9 @@ static void parseWeapon( INI* ini, void *instance, void * /*store*/, const void*
 	}
 }
 
-//-------------------------------------------------------------------------------------------------
-/** BreakApartSubObject / OverkillBreakApartSubObject / ExtremeOverkillBreakApartSubObject -- a
-	* plain, un-phased, space-separated list of ROOT bone/subobject names. Each root recursively
-	* breaks apart its whole subtree in BreakApartModel's own hierarchy (see
-	* BreakApartModelHelper.h's GetBreakApartSubtreeBones()) -- naming "TURRET" here also breaks
-	* apart "BARREL01"/"BARREL02" if they hang off TURRET in the model, with no need to list them
-	* separately. Multiple statements accumulate (same convention as FX/OCL/Weapon above), so a
-	* modder can either list every root on one line or split them across several
-	* `BreakApartSubObject = ...` lines. */
-//-------------------------------------------------------------------------------------------------
-static void parseBoneNameList( INI* ini, void * /*instance*/, void *store, const void* /*userData*/ )
-{
-	BADB_BoneNameVec* v = (BADB_BoneNameVec*)store;
-	for (const char* token = ini->getNextTokenOrNull(); token; token = ini->getNextTokenOrNull())
-	{
-		v->push_back(AsciiString(token));
-	}
-}
+// GeneralsMod @refactor Dimitar 26/10/2026: parseBoneNameList(), calcRandomOutwardForce(),
+// applyBreakApartDebrisForce(), boneNameListContains(), the per-bone spawn body and the overkill-tier
+// formula moved to GameLogic/BreakApartDebrisHelper.h/.cpp (shared with BreakApartJetSlowDeathBehaviorV2).
 
 //-------------------------------------------------------------------------------------------------
 /*static*/ void BreakApartDeathBehaviorV2ModuleData::buildFieldParse(MultiIniFieldParse& p)
@@ -159,14 +145,14 @@ static void parseBoneNameList( INI* ini, void * /*instance*/, void *store, const
 		{ "OCL",															parseOCL,												nullptr, 0 },
 		{ "Weapon",														parseWeapon,										nullptr, 0 },
 		{ "BreakApartModel",									INI::parseAsciiString,					nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_breakApartModel ) },
-		{ "BreakApartSubObject",							parseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_breakApartSubObject ) },
-		{ "RemainSubObject",									parseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_remainSubObject ) },
+		{ "BreakApartSubObject",							BreakApartParseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_breakApartSubObject ) },
+		{ "RemainSubObject",									BreakApartParseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_remainSubObject ) },
 		{ "OverkillPercentageFromMaxHealth",	INI::parsePercentToReal,				nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_overkillPercentageFromMaxHealth ) },
 		{ "OverkillDamageGreaterOrEqThan",		INI::parseReal,									nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_overkillDamageGreaterOrEqThan ) },
-		{ "OverkillBreakApartSubObject",			parseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_overkillBreakApartSubObject ) },
+		{ "OverkillBreakApartSubObject",			BreakApartParseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_overkillBreakApartSubObject ) },
 		{ "ExtremeOverkillPercentageFromMaxHealth", INI::parsePercentToReal,		nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_extremeOverkillPercentageFromMaxHealth ) },
 		{ "ExtremeOverkillDamageGreaterOrEqThan", INI::parseReal,					nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_extremeOverkillDamageGreaterOrEqThan ) },
-		{ "ExtremeOverkillBreakApartSubObject", parseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_extremeOverkillBreakApartSubObject ) },
+		{ "ExtremeOverkillBreakApartSubObject", BreakApartParseBoneNameList,							nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_extremeOverkillBreakApartSubObject ) },
 		{ "Force",														INI::parseReal,									nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_force ) },
 		{ "OverkillForce",										INI::parseReal,									nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_overkillForce ) },
 		{ "ExtremeOverkillForce",							INI::parseReal,									nullptr, offsetof( BreakApartDeathBehaviorV2ModuleData, m_extremeOverkillForce ) },
@@ -201,84 +187,6 @@ BreakApartDeathBehaviorV2::~BreakApartDeathBehaviorV2()
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Outward force for a debris piece, with a fixed mostly-upward pitch band -- unlike
-	* SlowDeathBehavior's FlingPitch/FlingPitchVariance, the user's own Force/OverkillForce/
-	* ExtremeOverkillForce fields carry no pitch control of their own, so this module hardcodes a
-	* reasonable "scatter outward and up" pitch range rather than exposing one. Revisit if per-tier
-	* pitch control is ever wanted.
-	*
-	* GeneralsMod @feature Dimitar 21/09/2026: biasDirXY, when non-null, is the (not necessarily
-	* normalized) horizontal direction the piece should fly roughly TOWARD -- typically the vector
-	* from the dying object's own center to that piece's actual world position (see
-	* spawnBreakApartDebris() below), so a part mounted on the tank's left flies off left-ish instead
-	* of in a fully random direction that could just as easily send it clean across to the right.
-	* The actual yaw is that bias direction's own angle plus a random +/- spreadAngle jitter, so it
-	* still scatters naturally rather than every piece flying in a perfectly straight radial line.
-	* biasDirXY == nullptr (or a degenerate near-zero-length vector) falls back to the old, fully
-	* random -PI..PI behavior -- used for the RemainPieceOCL remainder piece, which has no off-center
-	* position of its own to derive a direction from. */
-//-------------------------------------------------------------------------------------------------
-static void calcRandomOutwardForce(Real magnitude, const Coord3D* biasDirXY, Real spreadAngle, Coord3D& force)
-{
-	Real angle;
-	if (biasDirXY != nullptr && (biasDirXY->x * biasDirXY->x + biasDirXY->y * biasDirXY->y) > 0.0001f)
-		angle = (Real)atan2(biasDirXY->y, biasDirXY->x) + GameLogicRandomValueReal(-spreadAngle, spreadAngle);
-	else
-		angle = GameLogicRandomValueReal(-PI, PI);
-
-	Real pitch = GameLogicRandomValueReal(0.15f * PI, 0.5f * PI);
-
-	Matrix3D mtx(1);
-	mtx.Scale(magnitude);
-	mtx.Rotate_Z(angle);
-	mtx.Rotate_Y(-pitch);
-
-	Vector3 v = mtx.Get_X_Vector();
-
-	force.x = v.X;
-	force.y = v.Y;
-	force.z = v.Z;
-}
-
-//-------------------------------------------------------------------------------------------------
-/** Fling + tumble a freshly-spawned debris piece exactly like every other one -- shared by both the
-	* per-bone pieces below and the single remainder piece, so the two spawn paths behave identically
-	* aside from which subobject(s) end up visible on the clone. */
-//-------------------------------------------------------------------------------------------------
-static void applyBreakApartDebrisForce(Object* debris, Real force, const Coord3D* biasDirXY, Real spreadAngle)
-{
-	if (force <= 0.0f)
-		return;
-
-	PhysicsBehavior* physics = debris->getPhysics();
-	if (physics == nullptr)
-		return;
-
-	Coord3D forceVec;
-	calcRandomOutwardForce(force, biasDirXY, spreadAngle, forceVec);
-	physics->setAllowToFall(true);
-	physics->applyForce(&forceVec);
-	// GeneralsMod @feature Dimitar 19/09/2026: give the piece some tumble too -- applyForce() alone
-	// only ever produces straight-line motion, never rotation. applyRandomRotation() is the same
-	// helper the engine's own disposition-based debris (SEND_IT_FLYING/SEND_IT_UP in
-	// ObjectCreationList.cpp) effectively hand-rolls itself; it reads ShockMaxYaw/ShockMaxPitch/
-	// ShockMaxRoll off the piece's OWN PhysicsBehavior ModuleData (nonzero engine defaults, but
-	// overridable per BreakApartDebrisPiece template) and also flips on AllowBouncing.
-	physics->applyRandomRotation();
-}
-
-//-------------------------------------------------------------------------------------------------
-static Bool boneNameListContains(const BADB_BoneNameVec& list, const AsciiString& name)
-{
-	for (BADB_BoneNameVec::const_iterator it = list.begin(); it != list.end(); ++it)
-	{
-		if (it->compareNoCase(name) == 0)
-			return true;
-	}
-	return false;
-}
-
-//-------------------------------------------------------------------------------------------------
 /** For each root bone in rootBones, walks its whole descendant subtree on the reference model
 	* (children before their own parent -- see GetBreakApartSubtreeBones()) and spawns ONE debris
 	* piece per resolved bone from the single, generic BreakApartPieceOCL. The spawned Object is
@@ -306,218 +214,28 @@ void BreakApartDeathBehaviorV2::spawnBreakApartDebris( const BADB_BoneNameVec& r
 	if (d->m_breakApartModel.isEmpty())
 		return;
 
-	// GeneralsMod @feature Dimitar 19/09/2026: the dying object's OWN Drawable is still alive right
-	// now (TheGameLogic->destroyObject() doesn't happen until DestructionDelay elapses, well after
-	// this function returns) -- so its Draw module still has the LIVE, per-instance bone state
-	// (e.g. turret/barrel aim rotation, applied via Capture_Bone/Control_Bone on the render object
-	// every frame) that the standalone/never-rendered BreakApartModel reference clone has no way to
-	// know about. Drawable::getCurrentWorldspaceClientBonePositions() is the existing,
-	// GameLogic-safe accessor for a bone's CURRENT world transform -- LaserUpdate::updateStartPos()
-	// is the existing precedent for calling it from a z_gameengine Update module; it is NOT the
-	// same as the clientOnly_-prefixed W3DModelDraw internals underneath it, which really are
-	// logic-unsafe. This is purely a per-client VISUAL read: it never feeds into the spawned
-	// debris Object's own SYNCED position/orientation (still set from obj->getPosition()/
-	// getOrientation() below, unchanged), only into that Object's own Draw module's local
-	// rendering offset -- the same category of already-per-client, already-synced-state-derived
-	// visual as the live unit's own turret rendering already is.
-	const Drawable* drawable = obj->getDrawable();
+	// (Live-bone alignment against the still-alive dying Drawable now happens inside
+	// BreakApartSpawnPiece() -- see BreakApartDebrisHelper.cpp.)
 
-	// GeneralsMod @feature Dimitar 19/09/2026: resolve RemainSubObject's protection ONCE, up front,
-	// reusing GetBreakApartSubtreeBones() itself -- a "protected" root pulls in its own whole
-	// subtree exactly the same way a BreakApartSubObject root pulls ITS subtree in for breaking
-	// apart, just walked for the opposite purpose. Independent of which tier's rootBones we're
-	// processing below, so it only needs to happen once per death.
-	std::vector<AsciiString> protectedBones;
+	// GeneralsMod @feature Dimitar 19/09/2026: resolve RemainSubObject's protection ONCE, up front --
+	// a protected root pulls in its own whole subtree, exactly like a BreakApartSubObject root does.
+	BreakApartBoneNameVec protectedBones;
 	for (BADB_BoneNameVec::const_iterator protIt = d->m_remainSubObject.begin(); protIt != d->m_remainSubObject.end(); ++protIt)
-	{
-		std::vector<AsciiString> protectedSubtree;
-		if (GetBreakApartSubtreeBones(d->m_breakApartModel, *protIt, &protectedSubtree))
-			protectedBones.insert(protectedBones.end(), protectedSubtree.begin(), protectedSubtree.end());
-	}
+		BreakApartAppendSubtree(d->m_breakApartModel, *protIt, BreakApartBoneNameVec(), &protectedBones);
 
-	std::vector<AsciiString> allBrokenBones;
+	// Every bone that gets broken off (protected bones excluded, duplicates across overlapping roots
+	// removed), in root order, children before parent. Also needed with no BreakApartPieceOCL at all
+	// (a modder using ONLY RemainPieceOCL) so the remainder piece knows which bones to hide.
+	BreakApartBoneNameVec allBrokenBones;
+	for (BADB_BoneNameVec::const_iterator rootIt = rootBones.begin(); rootIt != rootBones.end(); ++rootIt)
+		BreakApartAppendSubtree(d->m_breakApartModel, *rootIt, protectedBones, &allBrokenBones);
 
 	if (d->m_breakApartPieceOCL != nullptr)
 	{
-		for (BADB_BoneNameVec::const_iterator rootIt = rootBones.begin(); rootIt != rootBones.end(); ++rootIt)
+		for (BreakApartBoneNameVec::const_iterator boneIt = allBrokenBones.begin(); boneIt != allBrokenBones.end(); ++boneIt)
 		{
-			std::vector<AsciiString> subtreeBones;
-			if (!GetBreakApartSubtreeBones(d->m_breakApartModel, *rootIt, &subtreeBones))
-				continue;	// root bone missing from the reference model (or model failed to load) -- skip it
-
-			// GeneralsMod @feature Dimitar 19/09/2026: drop any bone explicitly protected via
-			// RemainSubObject before it's treated as broken apart at all -- it neither spawns its
-			// own piece below nor gets added to allBrokenBones, so it stays visible in the
-			// RemainPieceOCL/RemainPieceFX remainder piece instead (see boneNameListContains()
-			// above and m_remainSubObject's own comment in the header).
-			std::vector<AsciiString> brokenBones;
-			for (std::vector<AsciiString>::const_iterator it = subtreeBones.begin(); it != subtreeBones.end(); ++it)
-			{
-				if (!boneNameListContains(protectedBones, *it))
-					brokenBones.push_back(*it);
-			}
-
-			allBrokenBones.insert(allBrokenBones.end(), brokenBones.begin(), brokenBones.end());
-
-			for (std::vector<AsciiString>::const_iterator boneIt = brokenBones.begin(); boneIt != brokenBones.end(); ++boneIt)
-			{
-				Object* debris = ObjectCreationList::create( d->m_breakApartPieceOCL, obj, obj->getPosition(), nullptr, obj->getOrientation() );
-				if (debris == nullptr)
-					continue;
-
-				// Look up this bone's current world transform on the LIVE dying Drawable. May fail
-				// (bone doesn't exist on the live model's current condition-state variant, or the
-				// object has no Drawable at all for some reason) -- in that case, fall back below to
-				// an APPROXIMATE world transform derived from the reference model's own bind pose.
-				Matrix3D boneWorldXform;
-				Bool haveBoneXform = (drawable != nullptr) &&
-					drawable->getCurrentWorldspaceClientBonePositions( boneIt->str(), boneWorldXform );
-				// GeneralsMod @fix Dimitar 21/09/2026: root-caused -- a bone can legitimately resolve on
-				// the standalone BreakApartModel reference skeleton (used above to enumerate the subtree)
-				// while having no same-named bone on the LIVE dying unit's own model at all (e.g. a bone
-				// that exists purely to give one subtree several independent debris chunks). That's the
-				// common case, not an error: the live lookup above legitimately fails for most bones on
-				// a finely-subdivided BreakApartModel.
-
-				if (!haveBoneXform)
-				{
-					// GeneralsMod @fix Dimitar 21/09/2026: root-caused the "pieces float on landing"
-					// bug down to THIS gap. Previously, when no live transform was found, boneWorldXform
-					// was simply never set at all, and everything below degraded to nullptr/false --
-					// which left this debris Object's own SIM/physics-tracked transform sitting at
-					// wherever ObjectCreationList::create() spawned it above: the DYING OBJECT's own
-					// root position (obj->getPosition()/getOrientation()), not the bone's position.
-					// PhysicsBehavior then ground-clamps THAT (wrong) point -- the hull's own root
-					// height, not the height the bone/mesh actually sits at (e.g. mounted up on a
-					// turret) -- while the Draw-side ground-offset correction in
-					// W3DBreakApartPieceDraw.cpp only ever compensated for the small mesh-to-its-own-
-					// pivot offset, not this much larger root-to-bone-mount-height gap. Net effect: the
-					// visible mesh renders however many units above the ground that the bone sits above
-					// the hull root -- exactly the reported "floats when landing" symptom, and exactly
-					// why TURRET/BARREL01 (the two bones that DID have a live transform) always worked
-					// while every fallback bone (TURRET02, BARREL02/03, TURRET01/03/04) never did.
-					//
-					// Fix: approximate the bone's world transform as
-					// dyingObjectTransform * boneBindPoseOnReferenceModel -- the ANCHOR (the dying
-					// Object's own current position/orientation) is exact; only the ROTATION comes from
-					// the reference model's REST pose rather than the unit's actual live pose (there's
-					// no live bone to read, so this is the best available stand-in -- see
-					// GetBreakApartBoneBindTransform()'s own comment in BreakApartModelHelper.h). This
-					// still anchors the debris Object's physics point to roughly the right spot on the
-					// dying unit instead of leaving it down at the root.
-					Matrix3D boneBindXform;
-					if (GetBreakApartBoneBindTransform(d->m_breakApartModel, *boneIt, &boneBindXform))
-					{
-						Matrix3D::Multiply(*obj->getTransformMatrix(), boneBindXform, &boneWorldXform);
-						haveBoneXform = true;
-					}
-				}
-
-				// GeneralsMod @fix Dimitar 19/09/2026: re-anchor the debris Object's own SIM
-				// position/orientation onto the bone's world transform (live if available, else the
-				// bind-pose approximation just computed above), BEFORE telling the Draw module which
-				// subobject to show. Without this, the Object stayed spawned at the DYING OBJECT's own
-				// root transform (obj->getPosition()/getOrientation(), passed to
-				// ObjectCreationList::create() above) -- fine for a piece that happens to BE the model
-				// root, but wrong for anything mounted away from it (e.g. a barrel mounted up on a
-				// turret): PhysicsBehavior moves/rotates the Object around THAT root point, not around
-				// the bone's own position, while setBreakApartPiece()'s m_pieceOffset only visually
-				// re-aligns the RENDER once, at spawn -- so as physics then evolves the (wrong) root-
-				// anchored transform frame by frame, the visible piece swings around a pivot that isn't
-				// where it geometrically is (looks like it falls from/rotates around the wrong height/
-				// point entirely, or floats above the ground once landed). setTransformMatrix() here
-				// (Thing::setTransformMatrix(), public, the same call the engine's own object-
-				// placement code uses) updates the Object's real synced transform AND propagates to
-				// its Drawable via Object::reactToTransformChange()'s existing
-				// `m_drawable->setTransformMatrix(...)` call -- so by the time setBreakApartPiece()
-				// below reads getDrawable()->getTransformMatrix(), it already reflects the bone's own
-				// position, which makes its m_pieceOffset math collapse to exactly the fixed
-				// root-to-bone geometric offset (no per-frame drift), and PhysicsBehavior now moves/
-				// rotates the Object around the bone's own point instead of the model's root -- the
-				// visible piece and the physics body become the same rigid point. Left at the old
-				// root-anchored spawn position/orientation only in the (now rare) case where neither a
-				// live transform NOR a bind-pose fallback could be resolved at all (model failed to
-				// load, or the bone name itself is bad) -- setBreakApartPiece() still degrades
-				// gracefully via its own targetBoneIndex-only ground-offset correction in that case.
-				//
-				// GeneralsMod @fix Dimitar 23/09/2026: root-caused "rotation looks weird, like the
-				// pivot isn't on the part itself" -- anchoring the SIM transform at the bone's own raw
-				// pivot (as above) means PhysicsBehavior tumbles/rotates the piece around THAT point,
-				// but a bone's pivot is very often NOT anywhere near its subobject's own visual center
-				// (a barrel's bone sits at its mount point, with the tube extending well past it in one
-				// direction) -- once the piece is free-flying debris with no bone attachment left to
-				// justify pivoting on the original mount point, rotating around it looks exactly like
-				// what was reported: the mesh visibly swinging around an point off in space rather than
-				// tumbling about roughly its own middle. Fix: shift the SIM anchor from the bone's raw
-				// pivot to (approximately) the subobject's own local bounding-box center
-				// (GetBreakApartSubObjectLocalCenter(), BreakApartModelHelper.h) BEFORE calling
-				// setTransformMatrix() -- Translate() (not Adjust_*_Translation -- see the 21/09/2026
-				// lesson elsewhere in this file) rotates that LOCAL offset by boneWorldXform's own
-				// current orientation before adding it, so the recentered point is correct regardless
-				// of this bone's own orientation. Deliberately does NOT change what's passed to
-				// setBreakApartPiece() below (still the TRUE, non-recentered boneWorldXform) -- that
-				// function reads getDrawable()->getTransformMatrix() (now the RECENTERED transform,
-				// via reactToTransformChange()) purely as ITS OWN pre-overwrite baseline before
-				// computing pieceRootXform from the true bone transform passed in, so its EXISTING
-				// m_pieceOffset math (Inverse(drawable transform at spawn) * pieceRootXform) ends up
-				// automatically capturing the fixed local offset from the new centroid back to the
-				// true mesh position -- no changes needed inside setBreakApartPiece() itself, and that
-				// offset already rotates correctly with the piece as it tumbles, for the exact same
-				// reason m_pieceOffset was introduced in the first place (see its own 19/09/2026
-				// comment in W3DBreakApartPieceDraw.cpp).
-				if (haveBoneXform)
-				{
-					Matrix3D pivotWorldXform = boneWorldXform;
-					Vector3 localCenter(0.0f, 0.0f, 0.0f);
-					if (GetBreakApartSubObjectLocalCenter(d->m_breakApartModel, *boneIt, &localCenter))
-						pivotWorldXform.Translate(localCenter);
-					debris->setTransformMatrix(&pivotWorldXform);
-				}
-
-				// Tell whichever Draw module on this fresh Object is ours which single subobject of
-				// BreakApartModel to actually show -- a no-op on every other DrawModule (see
-				// DrawModule::setBreakApartPiece()'s own comment in Common/DrawModule.h).
-				for (DrawModule** dm = debris->getDrawable()->getDrawModules(); *dm; ++dm)
-				{
-					(*dm)->setBreakApartPiece(d->m_breakApartModel, *boneIt, haveBoneXform ? &boneWorldXform : nullptr);
-				}
-
-				// GeneralsMod @feature Dimitar 21/09/2026: bias the outward force toward this piece's
-				// own actual offset from the dying object's center (flat, XY only -- see
-				// calcRandomOutwardForce()'s own comment) rather than a fully random direction, so a
-				// piece mounted on the tank's left reliably flies off left-ish. Only possible when we
-				// have SOME world position for the bone (haveBoneXform, live or bind-pose-approximate)
-				// -- otherwise there's nothing to derive a direction from, and calcRandomOutwardForce()
-				// itself already degrades to the old fully random behavior for a degenerate/absent
-				// direction.
-				Coord3D outwardDirXY = { 0.0f, 0.0f, 0.0f };
-				if (haveBoneXform)
-				{
-					outwardDirXY.x = boneWorldXform.Get_X_Translation() - obj->getPosition()->x;
-					outwardDirXY.y = boneWorldXform.Get_Y_Translation() - obj->getPosition()->y;
-				}
-				applyBreakApartDebrisForce(debris, force, haveBoneXform ? &outwardDirXY : nullptr, d->m_forceSpreadAngle);
-				FXList::doFXObj(d->m_breakApartPieceFX, debris);
-			}
-		}
-	}
-	else
-	{
-		// GeneralsMod @feature Dimitar 19/09/2026: still need allBrokenBones even with no
-		// BreakApartPieceOCL configured (a modder using ONLY RemainPieceOCL, e.g.) -- the
-		// per-bone SPAWN loop above is skipped, but the bone-name RESOLUTION it would have fed into
-		// allBrokenBones still has to happen so the remainder piece knows which bones to hide.
-		for (BADB_BoneNameVec::const_iterator rootIt = rootBones.begin(); rootIt != rootBones.end(); ++rootIt)
-		{
-			std::vector<AsciiString> subtreeBones;
-			if (!GetBreakApartSubtreeBones(d->m_breakApartModel, *rootIt, &subtreeBones))
-				continue;
-
-			for (std::vector<AsciiString>::const_iterator it = subtreeBones.begin(); it != subtreeBones.end(); ++it)
-			{
-				if (!boneNameListContains(protectedBones, *it))
-					allBrokenBones.push_back(*it);
-			}
+			BreakApartSpawnPiece(obj, d->m_breakApartModel, *boneIt, d->m_breakApartPieceOCL, d->m_breakApartPieceFX,
+				force, d->m_forceSpreadAngle, nullptr);
 		}
 	}
 
@@ -534,7 +252,7 @@ void BreakApartDeathBehaviorV2::spawnBreakApartDebris( const BADB_BoneNameVec& r
 			// GeneralsMod @feature Dimitar 21/09/2026: no directional bias for the remainder piece --
 			// it's positioned at the dying object's own root, with no off-center offset of its own
 			// to derive an outward direction from, so it keeps the old fully random scatter.
-			applyBreakApartDebrisForce(remainder, force, nullptr, d->m_forceSpreadAngle);
+			BreakApartApplyDebrisForce(remainder, force, nullptr, d->m_forceSpreadAngle);
 			FXList::doFXObj(d->m_remainPieceFX, remainder);
 		}
 	}
@@ -601,27 +319,10 @@ void BreakApartDeathBehaviorV2::onDie( const DamageInfo *damageInfo )
 	// baseline (getInitialHealth()) -- the right "how tough is this unit right now" denominator.
 	// m_healthBeforeDamage (DamageInfoOutput, set by ActiveBody::attemptDamage) is only meaningful
 	// on the DamageInfo passed into onDie() -- not safe to read from any earlier, non-lethal hit.
-	Int tier = 0;
-	Real force = d->m_force;
-	Real maxHealth = obj->getBodyModule() ? obj->getBodyModule()->getMaxHealth() : 0.0f;
-	if (damageInfo != nullptr && maxHealth > 0.0f)
-	{
-		Real dealt = damageInfo->out.m_actualDamageDealt;
-		Real percentOfMaxHealth = dealt / maxHealth;
-		Real wastedDamage = dealt - damageInfo->out.m_healthBeforeDamage;
-		if (percentOfMaxHealth >= d->m_extremeOverkillPercentageFromMaxHealth &&
-			wastedDamage >= d->m_extremeOverkillDamageGreaterOrEqThan)
-		{
-			tier = 2;
-			force = d->m_extremeOverkillForce;
-		}
-		else if (percentOfMaxHealth >= d->m_overkillPercentageFromMaxHealth &&
-			wastedDamage >= d->m_overkillDamageGreaterOrEqThan)
-		{
-			tier = 1;
-			force = d->m_overkillForce;
-		}
-	}
+	Int tier = BreakApartCalcOverkillTier(obj, damageInfo,
+		d->m_overkillPercentageFromMaxHealth, d->m_overkillDamageGreaterOrEqThan,
+		d->m_extremeOverkillPercentageFromMaxHealth, d->m_extremeOverkillDamageGreaterOrEqThan);
+	Real force = (tier == 2) ? d->m_extremeOverkillForce : (tier == 1) ? d->m_overkillForce : d->m_force;
 
 	// GeneralsMod @feature Dimitar 19/09/2026: DON'T spawn debris here -- cache the selected tier
 	// instead and spawn it later, in update(), at the same moment the dying object is actually

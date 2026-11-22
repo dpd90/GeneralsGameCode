@@ -113,6 +113,12 @@ enum DamageType CPP_11(: Int)
 	DAMAGE_OVERTIME7							/*= 48*/,
 	DAMAGE_OVERTIME8							/*= 49*/,
 
+	// GeneralsMod @feature Dimitar 14/11/2026: two new general-purpose damage types, each with its own
+	// independently-tunable ArmorSet Percent coefficient and DamageFX entry. No special-cased behavior:
+	// they go through armor like any normal type (default 100% when an Armor template doesn't list them).
+	DAMAGE_PURE									/*= 50*/,
+	DAMAGE_LIGHTNING							/*= 51*/,
+
 	// Please note: There is a string array DamageTypeFlags::s_bitNameList[]
 
 	DAMAGE_NUM_TYPES

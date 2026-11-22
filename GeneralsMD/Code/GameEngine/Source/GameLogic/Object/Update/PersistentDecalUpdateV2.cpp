@@ -47,6 +47,8 @@ PersistentDecalUpdateV2::PersistentDecalUpdateV2( Thing *thing, const ModuleData
 	m_lastScale		= -1.0f;	// "unknown" -- forces the first push
 	m_lastOpacity	= -1.0f;
 	m_lastAngle		= -99999.0f;
+	m_deathFadeActive	= FALSE;
+	m_deathFadeElapsed	= 0;
 
 	setWakeFrame( getObject(), UPDATE_SLEEP_FOREVER );
 }
@@ -81,6 +83,19 @@ void PersistentDecalUpdateV2::paintDecal( Drawable *draw )
 }
 
 //-------------------------------------------------------------------------------------------------
+void PersistentDecalUpdateV2::clearDecal( Drawable *draw )
+{
+	if( draw )
+		draw->setPersistentDecal( AsciiString::TheEmptyString, 0.0f, 0.0f, getPersistentDecalUpdateV2ModuleData()->m_style );
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool PersistentDecalUpdateV2::isDeadAndRemoved() const
+{
+	return getPersistentDecalUpdateV2ModuleData()->m_removeOnDeath && getObject()->isEffectivelyDead();
+}
+
+//-------------------------------------------------------------------------------------------------
 Bool PersistentDecalUpdateV2::needsPerFrameUpdate() const
 {
 	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
@@ -108,13 +123,32 @@ UpdateSleepTime PersistentDecalUpdateV2::update()
 	// to this client's own Drawable/decal, so per-client differences (OnlyVisibleToOwningPlayer, stealth
 	// opacity) can't desync anything.
 	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
-	if( !needsPerFrameUpdate() || !isAlreadyUpgraded() || data->m_textureName.isEmpty() )
+	if( !isAlreadyUpgraded() || data->m_textureName.isEmpty() )
+		return UPDATE_SLEEP_FOREVER;
+
+	// GeneralsMod @bugfix Dimitar 10/11/2026: once dead (RemoveOnDeath), only a DeathFadeTime fade keeps us awake.
+	if( !m_deathFadeActive && ( !needsPerFrameUpdate() || isDeadAndRemoved() ) )
 		return UPDATE_SLEEP_FOREVER;
 
 	Object *obj = getObject();
 	Drawable *draw = obj->getDrawable();
 	if( !draw )
 		return UPDATE_SLEEP_NONE;
+
+	// GeneralsMod @bugfix Dimitar 10/11/2026: DeathFadeTime. Pushing only on change is safe even across a
+	// ConditionState model swap: W3DModelDraw::reapplyTerrainDecal() restores the last size/opacity/angle.
+	Real deathFade = 1.0f;
+	if( m_deathFadeActive )
+	{
+		++m_deathFadeElapsed;
+		if( m_deathFadeElapsed >= data->m_deathFadeFrames )
+		{
+			clearDecal( draw );
+			m_deathFadeActive = FALSE;
+			return UPDATE_SLEEP_FOREVER;
+		}
+		deathFade = 1.0f - (Real)m_deathFadeElapsed / (Real)data->m_deathFadeFrames;
+	}
 
 	if( data->m_followObjectScale )
 	{
@@ -124,12 +158,16 @@ UpdateSleepTime PersistentDecalUpdateV2::update()
 			draw->setTerrainDecalSize( data->m_sizeX * scale, data->m_sizeY * scale );
 			m_lastScale = scale;
 		}
+	}
 
-		Real opacity = draw->getEffectiveOpacity();
+	if( data->m_followObjectScale || m_deathFadeActive )
+	{
+		Real opacity = data->m_followObjectScale ? draw->getEffectiveOpacity() : 1.0f;
 		if( opacity < 0.0f )
 			opacity = 0.0f;
 		if( opacity > 1.0f )
 			opacity = 1.0f;
+		opacity *= deathFade;
 		if( opacity != m_lastOpacity )
 		{
 			for( DrawModule** dm = draw->getDrawModules(); *dm; ++dm )
@@ -171,6 +209,30 @@ void PersistentDecalUpdateV2::onCreate()
 }
 
 //-------------------------------------------------------------------------------------------------
+/** DieModuleInterface hook -- Object::onDie() calls this at the START of the death sequence (before any
+	* SlowDeath/death animation), not when the object is finally removed.
+	* GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath / DeathFadeTime -- see the header for why the
+	* vanilla onDie() decal fade never reached this decal. Runs identically on every client (setWakeFrame is
+	* sim-side and deterministic); only the decal calls themselves are local rendering. */
+//-------------------------------------------------------------------------------------------------
+void PersistentDecalUpdateV2::onDie( const DamageInfo * /*damageInfo*/ )
+{
+	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
+	if( !data->m_removeOnDeath || data->m_textureName.isEmpty() || !isAlreadyUpgraded() )
+		return;
+
+	if( data->m_deathFadeFrames == 0 )
+	{
+		clearDecal( getObject()->getDrawable() );
+		return;
+	}
+
+	m_deathFadeActive = TRUE;
+	m_deathFadeElapsed = 0;
+	setWakeFrame( getObject(), UPDATE_SLEEP_NONE );
+}
+
+//-------------------------------------------------------------------------------------------------
 /** UpgradeMux hook -- fires once, the first time a TriggeredBy upgrade completes (or immediately
 	* from onCreate() above, if StartsActive). */
 //-------------------------------------------------------------------------------------------------
@@ -179,6 +241,11 @@ void PersistentDecalUpdateV2::upgradeImplementation()
 	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
 
 	if ( data->m_textureName.isEmpty() )
+		return;
+
+	// GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath -- a TriggeredBy upgrade completing while the
+	// object is already dying must not paint a fresh decal under the wreck.
+	if ( isDeadAndRemoved() )
 		return;
 
 	// GeneralsMod @feature Dimitar 02/10/2026: follow modes. Done before the per-client visibility check
@@ -231,6 +298,9 @@ void PersistentDecalUpdateV2::onCapture( Player *oldOwner, Player *newOwner )
 	const PersistentDecalUpdateV2ModuleData *data = getPersistentDecalUpdateV2ModuleData();
 
 	if ( !data->m_onlyVisibleToOwningPlayer || data->m_textureName.isEmpty() || !isAlreadyUpgraded() )
+		return;
+
+	if ( isDeadAndRemoved() )	// GeneralsMod @bugfix Dimitar 10/11/2026: never repaint on a dying object
 		return;
 
 	Drawable *draw = getObject()->getDrawable();
@@ -291,5 +361,12 @@ void PersistentDecalUpdateV2::loadPostProcess()
 	m_lastScale = -1.0f;
 	m_lastOpacity = -1.0f;
 	m_lastAngle = -99999.0f;
+
+	// GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath. Object::initObject() replayed
+	// upgradeImplementation() and repainted the decal BEFORE the object's own xfer restored its
+	// EFFECTIVELY_DEAD status, so a unit saved mid-death gets its decal back here -- clear it again.
+	// (A DeathFadeTime fade in progress isn't saved; it just ends at once.)
+	if( isDeadAndRemoved() )
+		clearDecal( getObject()->getDrawable() );
 
 }

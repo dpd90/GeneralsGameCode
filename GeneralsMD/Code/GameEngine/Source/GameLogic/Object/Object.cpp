@@ -5493,10 +5493,20 @@ void Object::doStatusDamage( ObjectStatusTypes status, Real duration )
 }
 
 //-------------------------------------------------------------------------------------------------
-void Object::doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride )
+void Object::doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride,
+	Bool suppressDefaultTint, Bool projectileOnly )
 {
 	if(m_tempWeaponBonusHelper)
-		m_tempWeaponBonusHelper->doTempWeaponBonus(status, duration, tintColorOverride);
+		m_tempWeaponBonusHelper->doTempWeaponBonus(status, duration, tintColorOverride, suppressDefaultTint, projectileOnly);
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 22/10/2026
+WeaponBonusConditionFlags Object::getProjectileOnlyWeaponBonusFlags() const
+{
+	if(m_tempWeaponBonusHelper)
+		return m_tempWeaponBonusHelper->getProjectileOnlyFlags();
+	return 0;
 }
 
 //-------------------------------------------------------------------------------------------------

@@ -142,6 +142,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "FirestormDynamicGeometryInfoUpdate", 16, 16 },
 	{ "FireWeaponCollide", 2048, 32 },
 	{ "FireWeaponUpdate", 32, 32 },
+	{ "FireUpdateV2", 32, 32 },///< GeneralsMod @feature Dimitar 11/11/2026: FireWeaponUpdate + FX/OCL at unit center
 	{ "FlammableUpdate", 512, 256 },
 	{ "FloatUpdate", 512, 128 },
 	{ "TensileFormationUpdate", 256, 32 },
@@ -152,6 +153,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "FireWeaponWhenDeadBehavior", 128, 64 },
 	{ "GenerateMinefieldBehavior", 32, 32 },
 	{ "HelicopterSlowDeathBehavior", 64, 32 },
+	{ "BreakApartHelicopterSlowDeathBehaviorV2", 64, 32 },///< GeneralsMod @feature Dimitar 10/11/2026: sized like HelicopterSlowDeathBehavior (one per helicopter)
 	{ "ParkingPlaceBehavior", 32, 32 },
 	{ "FlightDeckBehavior", 8, 8 },
 #ifdef ALLOW_SURRENDER
@@ -219,10 +221,12 @@ static PoolSizeRec PoolSizes[] =
 	{ "SupplyWarehouseCripplingBehavior", 16, 16 },
 	{ "CostModifierUpgrade", 32, 32 },
 	{ "CashBountyPower", 32, 32 },
+	{ "BuildTimeModifierPowerV2", 32, 32 },///< GeneralsMod @feature Dimitar 10/11/2026: science-activated build time modifier (CashBountyPower-style host on Command Centers)
 	{ "CleanupAreaPower", 32, 32 },
 	{ "ObjectCreationUpgrade", 196, 32 },
 	{ "MinefieldBehavior", 256, 32 },
 	{ "JetSlowDeathBehavior", 64, 32 },
+	{ "BreakApartJetSlowDeathBehaviorV2", 64, 32 },///< GeneralsMod @feature Dimitar 26/10/2026: sized like JetSlowDeathBehavior (one per jet)
 	{ "BattleBusSlowDeathBehavior", 64, 32 },
 	{ "RebuildHoleBehavior", 64, 32 },
 	{ "RebuildHoleExposeDie", 64, 32 },
@@ -237,6 +241,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "SalvageCrateCollide", 32, 32 },
 	{ "ShroudCrateCollide", 32, 32 },
 	{ "SlavedUpdate", 64, 32 },
+	{ "SlavedFollowUpdateV2", 64, 32 },
 	{ "SlowDeathBehavior", 1400, 256 },
 	{ "BreakApartDeathBehaviorV2", 512, 64 },
 	{ "SpyVisionUpdate", 16, 16 },

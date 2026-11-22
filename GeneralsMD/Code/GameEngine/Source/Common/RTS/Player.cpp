@@ -491,6 +491,14 @@ void Player::init(const PlayerTemplate* pt)
 		deleteInstance(tof);
 	}
 
+	// GeneralsMod @feature Dimitar 10/11/2026: BuildTimeModifierPowerV2 build time list
+	for( KindOfPercentProductionChangeListIt tit = m_kindOfPercentProductionTimeChangeList.begin(); tit != m_kindOfPercentProductionTimeChangeList.end(); )
+	{
+		KindOfPercentProductionChange *tof = *tit;
+		tit = m_kindOfPercentProductionTimeChangeList.erase( tit );
+		deleteInstance(tof);
+	}
+
 	getAcademyStats()->init( this );
 
 	//Always off at the beginning of a game! Only GameLogic::update has
@@ -3930,6 +3938,63 @@ Real Player::getProductionCostChangeBasedOnKindOf( KindOfMaskType kindOf ) const
 }
 
 //-------------------------------------------------------------------------------------------------
+/** GeneralsMod @feature Dimitar 10/11/2026: build-time twins of add/remove/getProductionCostChange...KindOf above, same
+	* ref-count semantics (identical kindOf+percent entries share one node and multiply only once).
+	* Used by BuildTimeModifierPowerV2, read by ThingTemplate::calcTimeToBuild(). */
+//-------------------------------------------------------------------------------------------------
+void Player::addKindOfProductionTimeChange( KindOfMaskType kindOf, Real percent )
+{
+	for( KindOfPercentProductionChangeListIt it = m_kindOfPercentProductionTimeChangeList.begin(); it != m_kindOfPercentProductionTimeChangeList.end(); ++it )
+	{
+		KindOfPercentProductionChange *tof = *it;
+		if( tof->m_percent == percent && tof->m_kindOf == kindOf )
+		{
+			tof->m_ref++;
+			return;
+		}
+	}
+
+	KindOfPercentProductionChange *newTof = newInstance( KindOfPercentProductionChange );
+	newTof->m_kindOf = kindOf;
+	newTof->m_percent = percent;
+	newTof->m_ref = 1;
+	m_kindOfPercentProductionTimeChangeList.push_back( newTof );
+}
+
+//-------------------------------------------------------------------------------------------------
+void Player::removeKindOfProductionTimeChange( KindOfMaskType kindOf, Real percent )
+{
+	for( KindOfPercentProductionChangeListIt it = m_kindOfPercentProductionTimeChangeList.begin(); it != m_kindOfPercentProductionTimeChangeList.end(); ++it )
+	{
+		KindOfPercentProductionChange *tof = *it;
+		if( tof->m_percent == percent && tof->m_kindOf == kindOf )
+		{
+			tof->m_ref--;
+			if( tof->m_ref == 0 )
+			{
+				m_kindOfPercentProductionTimeChangeList.erase( it );
+				deleteInstance( tof );
+			}
+			return;
+		}
+	}
+	DEBUG_CRASH(("removeKindOfProductionTimeChange: no entry with percent=%f", percent));
+}
+
+//-------------------------------------------------------------------------------------------------
+Real Player::getProductionTimeChangeBasedOnKindOf( KindOfMaskType kindOf ) const
+{
+	Real start = 1.0f;
+	for( KindOfPercentProductionChangeListIt it = m_kindOfPercentProductionTimeChangeList.begin(); it != m_kindOfPercentProductionTimeChangeList.end(); ++it )
+	{
+		KindOfPercentProductionChange *tof = *it;
+		if( TEST_KINDOFMASK_MULTI( kindOf, tof->m_kindOf, KINDOFMASK_NONE ) )
+			start *= (1 + tof->m_percent);
+	}
+	return start;
+}
+
+//-------------------------------------------------------------------------------------------------
 /** setAttackedBy */
 //-------------------------------------------------------------------------------------------------
 void Player::setAttackedBy( Int playerNdx )
@@ -4041,13 +4106,14 @@ void Player::crc( Xfer *xfer )
 	* 6: Store m_unitsShouldHunt, set to true after the script "Tell player to hunt" is called.
 	* 7: added Preorder flag
 	* 8: Save m_disabledSciences & m_hiddenSciences. jba.
+	* 9: GeneralsMod @feature Dimitar 10/11/2026: save m_kindOfPercentProductionTimeChangeList (BuildTimeModifierPowerV2)
 	*/
 // ------------------------------------------------------------------------------------------------
 void Player::xfer( Xfer *xfer )
 {
 
 	// version
-	const XferVersion currentVersion = 8;
+	const XferVersion currentVersion = 9;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -4580,6 +4646,39 @@ void Player::xfer( Xfer *xfer )
 	}
 	else
 		m_unitsShouldHunt = FALSE;
+
+	// GeneralsMod @feature Dimitar 10/11/2026: BuildTimeModifierPowerV2 build time list (same layout as the cost list above)
+	if( version >= 9 )
+	{
+		UnsignedShort timeChangeCount = m_kindOfPercentProductionTimeChangeList.size();
+		xfer->xferUnsignedShort( &timeChangeCount );
+		if( xfer->getXferMode() == XFER_SAVE )
+		{
+			for( KindOfPercentProductionChangeListIt it = m_kindOfPercentProductionTimeChangeList.begin(); it != m_kindOfPercentProductionTimeChangeList.end(); ++it )
+			{
+				KindOfPercentProductionChange *tentry = *it;
+				tentry->m_kindOf.xfer( xfer );
+				xfer->xferReal( &tentry->m_percent );
+				xfer->xferUnsignedInt( &tentry->m_ref );
+			}
+		}
+		else
+		{
+			if( !m_kindOfPercentProductionTimeChangeList.empty() )
+			{
+				DEBUG_CRASH(( "Player::xfer - m_kindOfPercentProductionTimeChangeList should be empty but is not" ));
+				throw SC_INVALID_DATA;
+			}
+			for( UnsignedInt i = 0; i < timeChangeCount; ++i )
+			{
+				KindOfPercentProductionChange *tentry = newInstance( KindOfPercentProductionChange );
+				tentry->m_kindOf.xfer( xfer );
+				xfer->xferReal( &tentry->m_percent );
+				xfer->xferUnsignedInt( &tentry->m_ref );
+				m_kindOfPercentProductionTimeChangeList.push_back( tentry );
+			}
+		}
+	}
 
 }
 

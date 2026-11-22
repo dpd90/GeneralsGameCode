@@ -1914,7 +1914,9 @@ void PartitionData::doSmallFill(
 	Real halfCellSize = ThePartitionManager->getCellSize() * 0.5f;
 	if (radius > halfCellSize)
 	{
-		DEBUG_CRASH(("object is too large to use a 'small' geometry, truncating size to cellsize"));
+		const Object *smallObj = getObject();
+		DEBUG_CRASH(("object '%s' is too large to use a 'small' geometry (GeometryMajorRadius %g > half PartitionCellSize %g), truncating size to cellsize",
+			smallObj ? smallObj->getTemplate()->getName().str() : "<no object>", radius, halfCellSize));
 		radius = halfCellSize;
 	}
 
@@ -5438,7 +5440,42 @@ Bool PartitionFilterPossibleToAttack::allow(Object *objOther)
 	// objOther is guaranteed to be non-null, so we don't need to check (srj)
 
 	// we should have already filtered out isAbleToAttack!
-	DEBUG_ASSERTCRASH(m_obj->isAbleToAttack(), ("if the object is unable to attack at all, you should filter that out ahead of time!"));
+#ifdef DEBUG_CRASHING
+	// GeneralsMod @debug: report which unit is scanning, from which AI state, and why it cannot attack.
+	if( !m_obj->isAbleToAttack() )
+	{
+		AsciiString reason;
+		if( m_obj->getStatusBits().test( OBJECT_STATUS_NO_ATTACK ) )
+			reason.concat( " NO_ATTACK" );
+		const Object *container = m_obj->getContainedBy();
+		if( container )
+		{
+			reason.concat( " CONTAINED_BY:" );
+			reason.concat( container->getTemplate()->getName() );
+		}
+		if( m_obj->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+			reason.concat( " UNDER_CONSTRUCTION" );
+		if( m_obj->testStatus( OBJECT_STATUS_SOLD ) )
+			reason.concat( " SOLD" );
+		if( m_obj->isDisabledByType( DISABLED_SUBDUED ) )
+			reason.concat( " SUBDUED" );
+		if( m_obj->isDisabledByType( DISABLED_HACKED ) )
+			reason.concat( " HACKED" );
+		if( m_obj->isDisabledByType( DISABLED_EMP ) )
+			reason.concat( " EMP" );
+		if( reason.isEmpty() )
+			reason = " OTHER (e.g. all weapons are on disabled turrets)";
+
+		AsciiString stateName = "?";
+#ifdef STATE_MACHINE_DEBUG
+		if( m_obj->getAI() )
+			stateName = m_obj->getAI()->getCurrentStateName();
+#endif
+
+		DEBUG_CRASH(("if the object is unable to attack at all, you should filter that out ahead of time! Unit '%s' (id %d), cmdSource %d, attackType %d, AI state '%s', reason:%s",
+			m_obj->getTemplate()->getName().str(), (Int)m_obj->getID(), (Int)m_commandSource, (Int)m_attackType, stateName.str(), reason.str()));
+	}
+#endif
 
 	CanAttackResult result = m_obj->getAbleToAttackSpecificObject( m_attackType, objOther, m_commandSource );
 	if( result == ATTACKRESULT_POSSIBLE || result == ATTACKRESULT_POSSIBLE_AFTER_MOVING )

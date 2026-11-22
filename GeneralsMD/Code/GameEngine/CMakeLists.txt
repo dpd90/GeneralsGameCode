@@ -273,6 +273,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/BridgeTowerBehavior.h
     Include/GameLogic/Module/BunkerBusterBehavior.h
     Include/GameLogic/Module/CashBountyPower.h
+    Include/GameLogic/Module/BuildTimeModifierPowerV2.h
     Include/GameLogic/Module/CashHackSpecialPower.h
     Include/GameLogic/Module/CaveContain.h
     Include/GameLogic/Module/CheckpointUpdate.h
@@ -321,6 +322,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/FireWeaponCollide.h
     Include/GameLogic/Module/FireWeaponPower.h
     Include/GameLogic/Module/FireWeaponUpdate.h
+    Include/GameLogic/Module/FireUpdateV2.h
     Include/GameLogic/Module/FireWeaponWhenDamagedBehavior.h
     Include/GameLogic/Module/FireWeaponWhenDeadBehavior.h
     Include/GameLogic/Module/FlammableUpdate.h
@@ -429,8 +431,12 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/SabotageSupplyDropzoneCrateCollide.h
     Include/GameLogic/Module/SalvageCrateCollide.h
     Include/GameLogic/Module/ShroudCrateCollide.h
+    Include/GameLogic/Module/SlavedFollowUpdateV2.h
     Include/GameLogic/Module/SlavedUpdate.h
     Include/GameLogic/Module/BreakApartDeathBehaviorV2.h
+    Include/GameLogic/Module/BreakApartJetSlowDeathBehaviorV2.h
+    Include/GameLogic/Module/BreakApartHelicopterSlowDeathBehaviorV2.h
+    Include/GameLogic/BreakApartDebrisHelper.h
     Include/GameLogic/Module/SlowDeathBehavior.h
     Include/GameLogic/Module/SmartBombTargetHomingUpdate.h
     Include/GameLogic/Module/SpawnBehavior.h
@@ -889,6 +895,9 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Behavior/PropagandaTowerBehavior.cpp
     Source/GameLogic/Object/Behavior/RebuildHoleBehavior.cpp
     Source/GameLogic/Object/Behavior/BreakApartDeathBehaviorV2.cpp
+    Source/GameLogic/Object/Behavior/BreakApartJetSlowDeathBehaviorV2.cpp
+    Source/GameLogic/Object/Behavior/BreakApartHelicopterSlowDeathBehaviorV2.cpp
+    Source/GameLogic/Object/Behavior/BreakApartDebrisHelper.cpp
     Source/GameLogic/Object/Behavior/SlowDeathBehavior.cpp
     Source/GameLogic/Object/Behavior/SpawnBehavior.cpp
     Source/GameLogic/Object/Behavior/SupplyWarehouseCripplingBehavior.cpp
@@ -982,6 +991,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/SimpleObjectIterator.cpp
     Source/GameLogic/Object/SpecialPower/BaikonurLaunchPower.cpp
     Source/GameLogic/Object/SpecialPower/CashBountyPower.cpp
+    Source/GameLogic/Object/SpecialPower/BuildTimeModifierPowerV2.cpp
     Source/GameLogic/Object/SpecialPower/CashHackSpecialPower.cpp
     Source/GameLogic/Object/SpecialPower/CleanupAreaPower.cpp
     Source/GameLogic/Object/SpecialPower/DefectorSpecialPower.cpp
@@ -1039,6 +1049,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/FireSpreadUpdate.cpp
     Source/GameLogic/Object/Update/FirestormDynamicGeometryInfoUpdate.cpp
     Source/GameLogic/Object/Update/FireWeaponUpdate.cpp
+    Source/GameLogic/Object/Update/FireUpdateV2.cpp
     Source/GameLogic/Object/Update/FlammableUpdate.cpp
     Source/GameLogic/Object/Update/FloatUpdate.cpp
     Source/GameLogic/Object/Update/HeightDieUpdate.cpp
@@ -1071,6 +1082,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/RadiusDecalUpdate.cpp
     Source/GameLogic/Object/Update/ScaledAttachmentUpdateV2.cpp
     Source/GameLogic/Object/Update/ScaledUpdateV2.cpp
+    Source/GameLogic/Object/Update/SlavedFollowUpdateV2.cpp
     Source/GameLogic/Object/Update/SlavedUpdate.cpp
     Source/GameLogic/Object/Update/SmartBombTargetHomingUpdate.cpp
     Source/GameLogic/Object/Update/SpecialAbilityUpdate.cpp

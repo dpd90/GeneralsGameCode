@@ -1433,8 +1433,15 @@ protected:
 		}
 
 #if !(RETAIL_COMPATIBLE_CRC || PRESERVE_NO_XP_FROM_OCL_KILLS)
-		ObjectID sinkID = sourceObj->getExperienceTracker()->getExperienceSink();
-		firstObject->getExperienceTracker()->setExperienceSink(sinkID != INVALID_ID ? sinkID : sourceObj->getID());
+		// GeneralsMod @bugfix Dimitar 26/10/2026: this upstream block was compiled out until PRESERVE_NO_XP_FROM_OCL_KILLS
+		// was set to 0, and it assumed both pointers are valid. firstObject is null whenever the nugget created nothing
+		// (Count = 0, an unknown object name, or CreateDebris skipped by the GameLOD "skip debris" setting), and
+		// sourceObj can be null for OCLs fired without a source. Either case crashed here (null read at +0x198).
+		if( firstObject && sourceObj && firstObject->getExperienceTracker() && sourceObj->getExperienceTracker() )
+		{
+			ObjectID sinkID = sourceObj->getExperienceTracker()->getExperienceSink();
+			firstObject->getExperienceTracker()->setExperienceSink(sinkID != INVALID_ID ? sinkID : sourceObj->getID());
+		}
 #endif
 
 		if (container)

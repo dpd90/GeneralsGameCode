@@ -42,6 +42,10 @@
 //       exactly one field so far (ParticleSystem) -- fixes that crash for good, not just for this
 //       one field.
 //
+//       GeneralsMod @change Dimitar 11/11/2026: that field is now named ParticleSysBone (the old
+//       ParticleSystem name is gone) and may be repeated -- every line adds one more bone-attached
+//       particle system, exactly like W3DModelDraw's own ParticleSysBone.
+//
 //       GeneralsMD-only: registered in the SHARED Core/GameEngineDevice/.../W3DModuleFactory.cpp
 //       under an #if RTS_ZEROHOUR guard (see that file), same as W3DPersistentAnimModelDraw/
 //       W3DWheeledTankDraw -- this header/source pair does not exist on the plain Generals build
@@ -53,6 +57,7 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "Common/GameType.h"
 #include "Common/DrawModule.h"
+#include <vector>
 #include "GameClient/ParticleSys.h"	///< GeneralsMod @feature Dimitar 01/10/2026: ParticleSystemID/ParticleSystemTemplate/TheParticleSystemManager for the new ParticleSystem field below
 #include "WWMath/matrix3d.h"	///< GeneralsMod @feature Dimitar 19/09/2026: need the full Matrix3D type (not just DrawModule.h's forward declare) for the m_pieceOffset member below
 
@@ -62,8 +67,19 @@ class RenderObjClass;
 class Shadow;
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsMod @change Dimitar 11/11/2026: one parsed ParticleSysBone line. Deliberately NOT
+// W3DModelDraw.h's own ParticleSysBoneInfo (same two members) -- this header must not pull in
+// W3DModelDraw.h, and reusing the name would clash in any TU that includes both.
+struct BreakApartParticleSysBoneInfo
+{
+	AsciiString							boneName;									///< lowered; empty or "none" means attach at the piece's own root, not a specific bone
+	const ParticleSystemTemplate*	particleSystemTemplate;		///< nullptr ("None" template) entries are parsed but skipped at creation time
+};
+typedef std::vector<BreakApartParticleSysBoneInfo> BreakApartParticleSysBoneInfoVector;
+
+//-------------------------------------------------------------------------------------------------
 // GeneralsMod @feature Dimitar 01/10/2026: this module's own ModuleData -- currently just the one
-// ParticleSystem field. boneName/particleSystemTemplate follow the exact same two-token INI shape
+// ParticleSysBone field (named ParticleSystem and single-valued until 11/11/2026). boneName/particleSystemTemplate follow the exact same two-token INI shape
 // as W3DModelDraw's own ParticleSysBone field (`<BoneName> <TemplateName>`, see parseParticleSysBone
 // in W3DModelDraw.cpp) for consistency with the rest of this engine, with one deliberate difference:
 // since this module only ever shows ONE resolved bone/subobject at a time (unlike W3DModelDraw,
@@ -75,12 +91,10 @@ class W3DBreakApartPieceDrawModuleData : public ModuleData
 {
 public:
 
-	AsciiString							m_particleSystemBoneName;		///< lowered; empty or "none" means attach at the piece's own root, not a specific bone
-	const ParticleSystemTemplate*	m_particleSystemTemplate;	///< nullptr (the default) disables the whole feature -- no particle system is ever created
+	BreakApartParticleSysBoneInfoVector	m_particleSysBones;		///< GeneralsMod @change Dimitar 11/11/2026: one entry per ParticleSysBone line, in INI order; empty (the default) disables the whole feature
 
 	W3DBreakApartPieceDrawModuleData()
 	{
-		m_particleSystemTemplate = nullptr;
 	}
 	virtual ~W3DBreakApartPieceDrawModuleData() { }
 
@@ -117,7 +131,7 @@ public:
 	// W3DDebrisDraw::setModelName(). Default argument deliberately NOT repeated here (it's on the
 	// DrawModule base declaration, the only one that matters for calls made through a DrawModule*,
 	// which is how every real caller reaches this).
-	virtual void setBreakApartPiece(const AsciiString& modelName, const AsciiString& boneName, const Matrix3D* liveBoneWorldTransform) override;
+	virtual void setBreakApartPiece(const AsciiString& modelName, const AsciiString& boneName, const Matrix3D* liveBoneWorldTransform, const std::vector<AsciiString>* attachedBoneNames) override;
 
 	// GeneralsMod @feature Dimitar 19/09/2026: the complementary "remainder" entry point -- see
 	// DrawModule::setBreakApartRemainder()'s own comment in Common/DrawModule.h. Same one-shot
@@ -146,13 +160,15 @@ private:
 	// destructor can explicitly destroy() it -- unlike W3DModelDraw (which tracks a whole vector of
 	// these and destroys them on ConditionState transitions), this module's piece never changes
 	// state after spawn, so its only cleanup moment is its own destruction.
-	ParticleSystemID					m_particleSystemID;
+	// GeneralsMod @change Dimitar 11/11/2026: now one ID per created particle system (ParticleSysBone
+	// is a list) -- was a single ParticleSystemID.
+	std::vector<ParticleSystemID>	m_particleSystemIDs;
 
 	// GeneralsMod @feature Dimitar 01/10/2026: shared by setBreakApartPiece()/setBreakApartRemainder()
 	// -- both are this module's one-shot "now show something" entry points, and either one should
-	// pick up the configured ParticleSystem field the same way. Reads getW3DBreakApartPieceDrawModuleData()
-	// and m_renderObject directly (both must already be set by the time this runs); no-op if the
-	// module data's own template is nullptr (the field was never set in INI).
-	void attachConfiguredParticleSystem();
+	// pick up the configured ParticleSysBone entries the same way. Reads getW3DBreakApartPieceDrawModuleData()
+	// and m_renderObject directly (both must already be set by the time this runs); no-op if no
+	// ParticleSysBone line was set in INI.
+	void attachConfiguredParticleSystems();
 
 };

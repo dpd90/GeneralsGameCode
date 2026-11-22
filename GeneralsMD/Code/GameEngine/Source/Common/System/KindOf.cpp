@@ -162,6 +162,8 @@ const char* const KindOfMaskType::s_bitNameList[] =
 	"CONSERVATIVE_BUILDING",
 	"IGNORE_DOCKING_BONES",
 	"NO_ATTACK_WARNING",
+	"WEAPON_BONUS_SOURCE",	///< GeneralsMod @feature Dimitar 24/10/2026
+	"NEXUS",								///< GeneralsMod @feature Dimitar 24/10/2026
 
 	nullptr
 };

@@ -1910,7 +1910,9 @@ void PartitionData::doSmallFill(
 	Real halfCellSize = ThePartitionManager->getCellSize() * 0.5f;
 	if (radius > halfCellSize)
 	{
-		DEBUG_CRASH(("object is too large to use a 'small' geometry, truncating size to cellsize"));
+		const Object *smallObj = getObject();
+		DEBUG_CRASH(("object '%s' is too large to use a 'small' geometry (GeometryMajorRadius %g > half PartitionCellSize %g), truncating size to cellsize",
+			smallObj ? smallObj->getTemplate()->getName().str() : "<no object>", radius, halfCellSize));
 		radius = halfCellSize;
 	}
 

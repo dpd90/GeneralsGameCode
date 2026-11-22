@@ -316,6 +316,12 @@ public:
 	Real															m_recoilSettle;
 	StaticGameLODLevel								m_minLODRequired;				///< minumum game LOD level necessary to use this module.
 	ModelConditionFlags								m_ignoreConditionStates;
+	// GeneralsMod @feature Dimitar 09/11/2026: RequiredConditions / ForbiddenConditions gate the WHOLE module. It draws (and answers
+	// bone / launch-offset / weapon-FX queries) only while every Required flag is set and no Forbidden flag
+	// is. Empty = no restriction. Lets two draw modules swap a unit's entire look, e.g. via a
+	// ModelConditionUpgrade setting USER_1. Both masks are also stripped before ConditionState matching.
+	ModelConditionFlags								m_requiredConditions;
+	ModelConditionFlags								m_forbiddenConditions;
 	Bool															m_okToChangeModelColor;
 	Bool															m_animationsRequirePower;///< Should UnderPowered disable type pause animations in this draw module?
 #ifdef CACHE_ATTACH_BONE
@@ -334,6 +340,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse& p);
  	AsciiString getBestModelNameForWB(const ModelConditionFlags& c) const;
 	const ModelConditionInfo* findBestInfo(const ModelConditionFlags& c) const;
+	Bool passesConditionGate(const ModelConditionFlags& c) const { return c.testSetAndClear(m_requiredConditions, m_forbiddenConditions); }	///< GeneralsMod @feature Dimitar 09/11/2026
 	void preloadAssets( TimeOfDay timeOfDay, Real scale ) const;
 #ifdef CACHE_ATTACH_BONE
 	const Vector3* getAttachToDrawableBoneOffset(const Drawable* draw) const;
@@ -383,6 +390,8 @@ public:
 	virtual void setPersistentDecal(const AsciiString& textureName, Real sizeX, Real sizeY, ShadowType style) override;	///<GeneralsMod @feature Dimitar 14/09/2026
 
 	virtual Bool isVisible() const override;
+	virtual Bool isDrawModuleSuppressed() const override { return !m_conditionGateOpen; }	///< GeneralsMod @feature Dimitar 09/11/2026: RequiredConditions/ForbiddenConditions gate closed
+	Bool isConditionGateOpen() const { return m_conditionGateOpen; }	///< GeneralsMod @feature Dimitar 09/11/2026
 	virtual void reactToTransformChange(const Matrix3D* oldMtx, const Coord3D* oldPos, Real oldAngle) override;
 	virtual void reactToGeometryChange() override { }
 
@@ -452,6 +461,7 @@ public:
 protected:
 
 	virtual void onRenderObjRecreated(){};
+	virtual void onConditionGateClosed() {}	///< GeneralsMod @feature Dimitar 09/11/2026: subclasses stop their own emitters (tread debris, wheel dust) here
 
 	const ModelConditionInfo* getCurState() const { return m_curState; }
 
@@ -531,12 +541,25 @@ private:
 	Real												m_persistentDecalSizeX;
 	Real												m_persistentDecalSizeY;
 	ShadowType									m_persistentDecalStyle;
+	// GeneralsMod @bugfix Dimitar 10/11/2026: ...and the live adjustments made on top of it (setTerrainDecalSize/
+	// Opacity/Angle), which the reapply above used to lose -- the decal came back at its base size, full
+	// opacity and no extra angle, while callers that only push on change (PersistentDecalUpdateV2's follow
+	// modes, HordeUpdate, Drawable's decal fade) believed their last value was still applied. Reset whenever a
+	// NEW decal is set from outside; restored by reapplyTerrainDecal() after a rebuild.
+	Bool												m_terrainDecalHasSize;
+	Real												m_terrainDecalSizeX;
+	Real												m_terrainDecalSizeY;
+	Real												m_terrainDecalOpacity;
+	Real												m_terrainDecalAngle;
+	void resetTerrainDecalAdjustments();
+	void reapplyTerrainDecal();	///< recreate the cached decal after a model rebuild, with its size/opacity/angle
 	TerrainTracksRenderObjClass*	m_trackRenderObject;							///< This is rendered under object
 	ParticleSystemIDVec						m_particleSystemIDs;							///< The ID numbers of the particle systems currently running.
 	std::vector<ModelConditionInfo::HideShowSubObjInfo>		m_subObjectVec;
 	Bool													m_hideHeadlights;
 	Bool													m_pauseAnimation;
 	Int														m_animationMode;
+	Bool													m_conditionGateOpen;	///< GeneralsMod @feature Dimitar 09/11/2026: FALSE while RequiredConditions/ForbiddenConditions fail
 
 	void adjustAnimation(const ModelConditionInfo* prevState, Real prevAnimFraction);
 	Real getCurrentAnimFraction() const;
@@ -549,6 +572,7 @@ private:
 	void adjustAnimSpeedToMovementSpeed();
 	static void hideAllMuzzleFlashes(const ModelConditionInfo* state, RenderObjClass* renderObject);
 	void hideAllHeadlights(Bool hide);
+	void applyConditionGate(Bool open);	///< GeneralsMod @feature Dimitar 09/11/2026
 #if defined(RTS_DEBUG)	//art wants to see buildings without flags as a test.
 	void hideGarrisonFlags(Bool hide);
 #endif

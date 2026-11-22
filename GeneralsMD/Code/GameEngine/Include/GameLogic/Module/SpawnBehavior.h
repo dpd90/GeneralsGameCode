@@ -123,6 +123,11 @@ public:
 	virtual void revealSlaves() = 0;
 	virtual Bool doSlavesHaveFreedom() const = 0;
 	virtual Int getSlaveCount() const = 0;
+
+	// GeneralsMod @feature Dimitar 02/11/2026 -- used by SlavedFollowUpdateV2 to pick a formation slot.
+	// Returns slaveID's position in the live spawn list (-1 if not ours); outCount = list size.
+	// Non-pure with a no-op default so other implementers don't need to change.
+	virtual Int getSlaveIndex( ObjectID slaveID, Int *outCount ) const { if( outCount ) *outCount = 0; return -1; }
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -179,6 +184,7 @@ public:
 	virtual void revealSlaves() override;
 	virtual Bool doSlavesHaveFreedom() const override { return getSpawnBehaviorModuleData()->m_slavesHaveFreeWill; }
 	virtual Int getSlaveCount() const override { return m_spawnCount; }
+	virtual Int getSlaveIndex( ObjectID slaveID, Int *outCount ) const override;	///< GeneralsMod: see SpawnBehaviorInterface
 
 	// **********************************************************************************************
 	// our own methods

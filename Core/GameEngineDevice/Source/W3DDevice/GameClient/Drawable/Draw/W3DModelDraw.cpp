@@ -1255,6 +1255,8 @@ void W3DModelDrawModuleData::buildFieldParse(MultiIniFieldParse& p)
 		{ "ExtraPublicBone", INI::parseAsciiStringVectorAppend, nullptr, offsetof(W3DModelDrawModuleData, m_extraPublicBones) },
 		{ "AttachToBoneInAnotherModule", parseAsciiStringLC, nullptr, offsetof(W3DModelDrawModuleData, m_attachToDrawableBone) },
 		{ "IgnoreConditionStates", ModelConditionFlags::parseFromINI, nullptr, offsetof(W3DModelDrawModuleData, m_ignoreConditionStates) },
+		{ "RequiredConditions", ModelConditionFlags::parseFromINI, nullptr, offsetof(W3DModelDrawModuleData, m_requiredConditions) },	// GeneralsMod @feature Dimitar 09/11/2026
+		{ "ForbiddenConditions", ModelConditionFlags::parseFromINI, nullptr, offsetof(W3DModelDrawModuleData, m_forbiddenConditions) },	// GeneralsMod @feature Dimitar 09/11/2026
 		{ "ReceivesDynamicLights", INI::parseBool, nullptr, offsetof(W3DModelDrawModuleData, m_receivesDynamicLights) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
@@ -1751,6 +1753,9 @@ const ModelConditionInfo* W3DModelDrawModuleData::findBestInfo(const ModelCondit
 {
 	ModelConditionFlags bits = c;
 	bits.clear(m_ignoreConditionStates);
+	// GeneralsMod @feature Dimitar 09/11/2026: the gate flags decide WHETHER this module draws, never WHICH state it picks
+	bits.clear(m_requiredConditions);
+	bits.clear(m_forbiddenConditions);
 	return m_conditionStateMap.findBestInfo(m_conditionStates, bits);
 }
 
@@ -1776,6 +1781,7 @@ W3DModelDraw::W3DModelDraw(Thing *thing, const ModuleData* moduleData) : DrawMod
 	m_persistentDecalSizeX = 0.0f;
 	m_persistentDecalSizeY = 0.0f;
 	m_persistentDecalStyle = SHADOW_ALPHA_DECAL;
+	resetTerrainDecalAdjustments();
 	m_trackRenderObject = nullptr;
 	m_whichAnimInCurState = -1;
 	m_nextState = nullptr;
@@ -1786,6 +1792,9 @@ W3DModelDraw::W3DModelDraw(Thing *thing, const ModuleData* moduleData) : DrawMod
 	}
 	m_needRecalcBoneParticleSystems = false;
 	m_fullyObscuredByShroud = false;
+	// GeneralsMod @feature Dimitar 09/11/2026: evaluate the gate against the creation-time (empty) flags before the first
+	// setModelState() below, so a RequiredConditions module builds its render object already hidden.
+	m_conditionGateOpen = getW3DModelDrawModuleData()->passesConditionGate(ModelConditionFlags());
 
 	// only validate the current time-of-day and weather conditions by default.
 	getW3DModelDrawModuleData()->validateStuffForTimeAndWeather(getDrawable(),
@@ -1849,7 +1858,7 @@ W3DModelDraw::~W3DModelDraw()
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::doStartOrStopParticleSys()
 {
-	Bool hidden = getDrawable()->isDrawableEffectivelyHidden() || m_fullyObscuredByShroud;
+	Bool hidden = getDrawable()->isDrawableEffectivelyHidden() || m_fullyObscuredByShroud || !m_conditionGateOpen;	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 
 	for (std::vector<ParticleSysTrackerType>::const_iterator it = m_particleSystemIDs.begin(); it != m_particleSystemIDs.end(); ++it)
 	//for (std::vector<ParticleSystemID>::const_iterator it = m_particleSystemIDs.begin(); it != m_particleSystemIDs.end(); ++it)
@@ -1869,6 +1878,10 @@ void W3DModelDraw::doStartOrStopParticleSys()
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::setHidden(Bool hidden)
 {
+	// GeneralsMod @feature Dimitar 09/11/2026: a module whose RequiredConditions/ForbiddenConditions gate is closed stays hidden
+	// whatever the Drawable asks (un-stealthing / un-garrisoning must not bring the old body back).
+	hidden = hidden || !m_conditionGateOpen;
+
 	if (m_renderObject)
 		m_renderObject->Set_Hidden(hidden);
 
@@ -1927,7 +1940,7 @@ void W3DModelDraw::allocateShadows()
 void W3DModelDraw::setShadowsEnabled(Bool enable)
 {
 	if (m_shadow)
-		m_shadow->enableShadowRender(enable);
+		m_shadow->enableShadowRender(enable && m_conditionGateOpen);	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 	m_shadowEnabled = enable;
 }
 
@@ -2086,6 +2099,10 @@ void W3DModelDraw::adjustTransformMtx(Matrix3D& mtx) const
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::doDrawModule(const Matrix3D* transformMtx)
 {
+	// GeneralsMod @feature Dimitar 09/11/2026: Drawable::draw() already skips gated modules; this covers any other caller.
+	if (!m_conditionGateOpen)
+		return;
+
 	// update whether or not we should be animating.
 	setPauseAnimation( !getDrawable()->getShouldAnimate(getW3DModelDrawModuleData()->m_animationsRequirePower) );
 
@@ -2686,7 +2703,7 @@ void W3DModelDraw::recalcBonesForClientParticleSystems()
 						// important: mark it as do-not-save, since we'll just re-create it when we reload.
 						sys->setSaveable(FALSE);
 
-						if (drawable->isDrawableEffectivelyHidden() || m_fullyObscuredByShroud)
+						if (drawable->isDrawableEffectivelyHidden() || m_fullyObscuredByShroud || !m_conditionGateOpen)	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 						{
 							sys->stop(); // don't start the systems for drawables that are hidden.
 						}
@@ -2726,7 +2743,7 @@ void W3DModelDraw::recalcBonesForClientParticleSystems()
 Bool W3DModelDraw::updateBonesForClientParticleSystems()
 {
 	const Drawable* drawable = getDrawable();
-	if (drawable != nullptr && m_curState != nullptr && m_renderObject != nullptr )
+	if (drawable != nullptr && m_curState != nullptr && m_renderObject != nullptr && m_conditionGateOpen )	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 	{
 		for (std::vector<ParticleSysTrackerType>::const_iterator it = m_particleSystemIDs.begin(); it != m_particleSystemIDs.end(); ++it)
 		{
@@ -2775,6 +2792,7 @@ void W3DModelDraw::setTerrainDecal(TerrainDecalType type)
 	// reapply this decal -- see m_terrainDecalType's declaration in the header for why.
 	m_terrainDecalType = type;
 	m_persistentDecalTexture = AsciiString::TheEmptyString;
+	resetTerrainDecalAdjustments();	// GeneralsMod @bugfix Dimitar 10/11/2026: a new decal starts from its defaults
 
 	if (type == TERRAIN_DECAL_NONE || type >= TERRAIN_DECAL_MAX)
 		//turning off decals on this object. (or bad value.)
@@ -2826,6 +2844,7 @@ void W3DModelDraw::setPersistentDecal(const AsciiString& textureName, Real sizeX
 	m_persistentDecalSizeX = sizeX;
 	m_persistentDecalSizeY = sizeY;
 	m_persistentDecalStyle = style;
+	resetTerrainDecalAdjustments();	// GeneralsMod @bugfix Dimitar 10/11/2026: a new decal starts from its defaults
 
 	if (textureName.isEmpty())
 		//turning off the decal on this object.
@@ -2850,6 +2869,9 @@ void W3DModelDraw::setPersistentDecal(const AsciiString& textureName, Real sizeX
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::setTerrainDecalSize(Real x, Real y)
 {
+	m_terrainDecalHasSize = TRUE;	// GeneralsMod @bugfix Dimitar 10/11/2026: cached for reapplyTerrainDecal()
+	m_terrainDecalSizeX = x;
+	m_terrainDecalSizeY = y;
 	if (m_terrainDecal)
 	{
 		m_terrainDecal->setSize(x,y);
@@ -2858,6 +2880,7 @@ void W3DModelDraw::setTerrainDecalSize(Real x, Real y)
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::setTerrainDecalOpacity(Real o)
 {
+	m_terrainDecalOpacity = o;	// GeneralsMod @bugfix Dimitar 10/11/2026: cached for reapplyTerrainDecal()
 	if (m_terrainDecal)
 	{
 		m_terrainDecal->setOpacity((Int)(255.0f * o));
@@ -2868,10 +2891,51 @@ void W3DModelDraw::setTerrainDecalOpacity(Real o)
 // GeneralsMod @feature Dimitar 02/10/2026: extra yaw on top of the owner's facing -- see DrawModule.h.
 void W3DModelDraw::setTerrainDecalAngle(Real angle)
 {
+	m_terrainDecalAngle = angle;	// GeneralsMod @bugfix Dimitar 10/11/2026: cached for reapplyTerrainDecal()
 	if (m_terrainDecal)
 	{
 		m_terrainDecal->setAngle(angle);
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @bugfix Dimitar 10/11/2026: defaults match a freshly created Shadow (base size from the
+// ShadowTypeInfo, opacity 255, local angle 0).
+void W3DModelDraw::resetTerrainDecalAdjustments()
+{
+	m_terrainDecalHasSize = FALSE;
+	m_terrainDecalSizeX = 0.0f;
+	m_terrainDecalSizeY = 0.0f;
+	m_terrainDecalOpacity = 1.0f;
+	m_terrainDecalAngle = 0.0f;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @bugfix Dimitar 10/11/2026: recreate the cached decal after a model rebuild (see the
+// 14/09/2026 fix in the rebuild code) and put back the size/opacity/angle it had. setTerrainDecal()/
+// setPersistentDecal() reset the adjustment cache, so take a copy first.
+void W3DModelDraw::reapplyTerrainDecal()
+{
+	if (m_terrainDecalType == TERRAIN_DECAL_NONE && m_persistentDecalTexture.isEmpty())
+		return;
+
+	const Bool hasSize = m_terrainDecalHasSize;
+	const Real sizeX = m_terrainDecalSizeX;
+	const Real sizeY = m_terrainDecalSizeY;
+	const Real opacity = m_terrainDecalOpacity;
+	const Real angle = m_terrainDecalAngle;
+
+	if (m_terrainDecalType != TERRAIN_DECAL_NONE)
+		setTerrainDecal(m_terrainDecalType);
+	else
+		setPersistentDecal(m_persistentDecalTexture, m_persistentDecalSizeX, m_persistentDecalSizeY, m_persistentDecalStyle);
+
+	if (hasSize)
+		setTerrainDecalSize(sizeX, sizeY);
+	if (opacity != 1.0f)
+		setTerrainDecalOpacity(opacity);
+	if (angle != 0.0f)
+		setTerrainDecalAngle(angle);
 }
 
 
@@ -3195,12 +3259,7 @@ void W3DModelDraw::setModelState(const ModelConditionInfo* newState)
 		// PersistentDecalUpdateV2 aura, or the vanilla chem-suit/crate/horde decal) is permanently lost
 		// the moment this Draw's ConditionState-driven Model changes (e.g. entering REALLYDAMAGED).
 		if (m_renderObject)
-		{
-			if (m_terrainDecalType != TERRAIN_DECAL_NONE)
-				setTerrainDecal(m_terrainDecalType);
-			else if (m_persistentDecalTexture.isNotEmpty())
-				setPersistentDecal(m_persistentDecalTexture, m_persistentDecalSizeX, m_persistentDecalSizeY, m_persistentDecalStyle);
-		}
+			reapplyTerrainDecal();	// GeneralsMod @bugfix Dimitar 10/11/2026: now also restores size/opacity/angle
 
 		if( m_renderObject )
 		{
@@ -3258,7 +3317,7 @@ void W3DModelDraw::setModelState(const ModelConditionInfo* newState)
 
 			//We created a new render object so we need to preserve the visibility state
 			//of the previous render object.
-			if (draw->isDrawableEffectivelyHidden())
+			if (draw->isDrawableEffectivelyHidden() || !m_conditionGateOpen)	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 			{
 				m_renderObject->Set_Hidden(TRUE);
 				if (m_shadow)
@@ -3303,11 +3362,39 @@ void W3DModelDraw::replaceModelConditionState(const ModelConditionFlags& c)
 {
 	m_hideHeadlights = c.test(MODELCONDITION_NIGHT) ? false : true;
 
-	const ModelConditionInfo* info = findBestInfo(c);
-	if (info)
-		setModelState(info);
+	// GeneralsMod @feature Dimitar 09/11/2026: while the RequiredConditions/ForbiddenConditions gate is closed the module
+	// keeps its last state untouched (no model rebuilds for a body nobody sees). On the frame it opens, the
+	// state is set while still flagged closed -- so a rebuilt render object starts hidden -- and only then
+	// is the module revealed, already in the correct state for the current flags (damaged, moving, ...).
+	const Bool gateOpen = getW3DModelDrawModuleData()->passesConditionGate(c);
+	if (gateOpen)
+	{
+		const ModelConditionInfo* info = findBestInfo(c);
+		if (info)
+			setModelState(info);
+	}
+	applyConditionGate(gateOpen);
 
 	hideAllHeadlights(m_hideHeadlights);
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 09/11/2026: open or close the RequiredConditions/ForbiddenConditions gate.
+void W3DModelDraw::applyConditionGate(Bool open)
+{
+	if (m_conditionGateOpen == open)
+		return;
+
+	m_conditionGateOpen = open;
+
+	// Re-apply visibility (model, shadow, track cap, ParticleSysBone systems) through our OWN setHidden,
+	// deliberately non-virtual: subclass overrides have side effects that must not follow the gate --
+	// e.g. W3DOverlordTankDraw::setHidden() hides the rider's drawable, which the other (open) body
+	// module still carries. setHidden() itself ORs in !m_conditionGateOpen.
+	W3DModelDraw::setHidden(getDrawable()->isDrawableEffectivelyHidden());
+
+	if (!open)
+		onConditionGateClosed();	// subclass-owned emitters (tread debris, wheel dust)
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -3353,7 +3440,7 @@ void W3DModelDraw::replaceIndicatorColor(Color color)
 // this method must ONLY be called from the client, NEVER From the logic, not even indirectly.
 Bool W3DModelDraw::clientOnly_getRenderObjInfo(Coord3D* pos, Real* boundingSphereRadius, Matrix3D* transform) const
 {
-	if (!m_renderObject)
+	if (!m_renderObject || !m_conditionGateOpen)	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 		return false;
 
 	Vector3 objPos = m_renderObject->Get_Position();	//get position of object
@@ -3384,6 +3471,11 @@ Bool W3DModelDraw::getProjectileLaunchOffset(
 		to get the pristine bone(s) for the state that logic believes to be current,
 		not the one the client might currently be using...
 	*/
+	// GeneralsMod @feature Dimitar 09/11/2026: gate on the logic-supplied condition (not our cached client state) so this
+	// stays deterministic; a closed module returns false and Drawable asks the next (open) module.
+	if (!getW3DModelDrawModuleData()->passesConditionGate(condition))
+		return false;
+
 	const ModelConditionInfo* stateToUse = findBestInfo(condition);
 	if (!stateToUse)
 	{
@@ -3533,6 +3625,10 @@ Int W3DModelDraw::getPristineBonePositionsForConditionState(
 		to get the pristine bone(s) for the state that logic believes to be current,
 		not the one the client might currently be using...
 	*/
+	// GeneralsMod @feature Dimitar 09/11/2026: gate on the logic-supplied condition, as getProjectileLaunchOffset does.
+	if (!getW3DModelDrawModuleData()->passesConditionGate(condition))
+		return 0;
+
 	const ModelConditionInfo* stateToUse = findBestInfo(condition);
 	if (!stateToUse)
 		return 0;
@@ -3634,7 +3730,7 @@ Int W3DModelDraw::getPristineBonePositionsForConditionState(
 // this method must ONLY be called from the client, NEVER From the logic, not even indirectly.
 Bool W3DModelDraw::clientOnly_getRenderObjBoundBox(OBBoxClass * boundbox) const
 {
-	if (!m_renderObject)
+	if (!m_renderObject || !m_conditionGateOpen)	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 		return false;
 
 	AABoxClass aabox;
@@ -3655,7 +3751,7 @@ Bool W3DModelDraw::clientOnly_getRenderObjBoundBox(OBBoxClass * boundbox) const
 // this method must ONLY be called from the client, NEVER From the logic, not even indirectly.
 Bool W3DModelDraw::clientOnly_getRenderObjBoneTransform(const AsciiString & boneName,Matrix3D * set_tm) const
 {
-	if (!m_renderObject) {
+	if (!m_renderObject || !m_conditionGateOpen) {	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 		return false;
 	}
 
@@ -3673,7 +3769,7 @@ Bool W3DModelDraw::clientOnly_getRenderObjBoneTransform(const AsciiString & bone
 //-------------------------------------------------------------------------------------------------
 Bool W3DModelDraw::getCurrentWorldspaceClientBonePositions(const char* boneName, Matrix3D& transform) const
 {
-	if (!m_renderObject)
+	if (!m_renderObject || !m_conditionGateOpen)	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 		return false;
 
 	Int boneIndex = m_renderObject->Get_Bone_Index(boneName);
@@ -3702,7 +3798,7 @@ Int W3DModelDraw::getCurrentBonePositions(
 	if (transforms == nullptr)
 		transforms = tmpMtx;
 
-	if( !m_renderObject )
+	if( !m_renderObject || !m_conditionGateOpen )	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 		return 0;
 
 	// ugh... kill the mtx so we get it in modelspace, not world space
@@ -3808,7 +3904,8 @@ const ModelConditionInfo* W3DModelDraw::findBestInfo(const ModelConditionFlags& 
 //-------------------------------------------------------------------------------------------------
 Int W3DModelDraw::getBarrelCount(WeaponSlotType wslot) const
 {
-	return (m_curState && (m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID)) ?
+	return (m_conditionGateOpen && m_curState &&	// GeneralsMod @feature Dimitar 09/11/2026: + gate
+		 (m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID)) ?
 		m_curState->m_weaponBarrelInfoVec[wslot].size() : 0;
 }
 
@@ -3817,7 +3914,8 @@ Int W3DModelDraw::getBarrelCount(WeaponSlotType wslot) const
 // the same per-barrel WeaponFireFXBone the engine already alternates real projectiles/muzzle FX through.
 AsciiString W3DModelDraw::getWeaponFireFXBoneName(WeaponSlotType wslot, Int specificBarrelToUse) const
 {
-	if (!m_curState || !(m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID))
+	if (!m_conditionGateOpen || !m_curState ||	// GeneralsMod @feature Dimitar 09/11/2026: + gate
+		 !(m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID))
 		return AsciiString::TheEmptyString;
 
 	const ModelConditionInfo::WeaponBarrelInfoVec& wbvec = m_curState->m_weaponBarrelInfoVec[wslot];
@@ -3835,7 +3933,8 @@ Bool W3DModelDraw::handleWeaponFireFX(WeaponSlotType wslot, Int specificBarrelTo
 {
 	DEBUG_ASSERTCRASH(specificBarrelToUse >= 0, ("specificBarrelToUse should now always be explicit"));
 
-	if (!m_curState || !(m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID))
+	if (!m_conditionGateOpen || !m_curState ||	// GeneralsMod @feature Dimitar 09/11/2026: + gate
+		 !(m_curState->m_validStuff & ModelConditionInfo::BARRELS_VALID))
 		return false;
 
 	const ModelConditionInfo::WeaponBarrelInfoVec& wbvec = m_curState->m_weaponBarrelInfoVec[wslot];
@@ -4053,7 +4152,7 @@ void W3DModelDraw::preloadAssets( TimeOfDay timeOfDay )
 //-------------------------------------------------------------------------------------------------
 Bool W3DModelDraw::isVisible() const
 {
-	return (m_renderObject && m_renderObject->Is_Really_Visible());
+	return (m_conditionGateOpen && m_renderObject && m_renderObject->Is_Really_Visible());	// GeneralsMod @feature Dimitar 09/11/2026: + gate
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -4085,7 +4184,9 @@ void W3DModelDraw::doHideShowProjectileObjects( UnsignedInt showCount, UnsignedI
 	// Loop through the projectile bones, and start hiding off the front.  That is, 8,9 means to hide the first only.
 	if (maxCount < showCount)
 	{
-		DEBUG_CRASH(("Someone is trying to show more projectiles than they have.") );
+		DEBUG_CRASH(("Someone is trying to show more projectiles than they have. Unit '%s', weapon slot %d: shots remaining %u > ClipSize %u%s",
+			getDrawable()->getTemplate()->getName().str(), (Int)slot, showCount, maxCount,
+			(maxCount == 0) ? " (ClipSize 0 = unlimited; give the weapon a ClipSize or remove this slot from ProjectileBoneFeedbackEnabledSlots)" : ""));
 		return;
 	}
 	Int hideCount = maxCount - showCount;

@@ -174,6 +174,8 @@ enum KindOfType CPP_11(: Int)
 	// TheSuperHackers @info New kinds for Mods
 
 	KINDOF_NO_ATTACK_WARNING,				///< does not trigger the under attack radar/EVA warning when taking damage
+	KINDOF_WEAPON_BONUS_SOURCE,			///< GeneralsMod @feature Dimitar 24/10/2026: tag for units that give weapon bonus auras; use in WeaponBonusUpdate(V2) ForbiddenAffectKindOf so aura sources don't buff themselves or each other
+	KINDOF_NEXUS,										///< GeneralsMod @feature Dimitar 24/10/2026: generic mod tag, usable in any KindOf filter
 
 	KINDOF_COUNT,										// total number of kindofs
 	KINDOF_FIRST = 0,

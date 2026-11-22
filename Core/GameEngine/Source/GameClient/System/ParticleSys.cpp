@@ -427,7 +427,12 @@ Bool Particle::update()
 	if (m_lifetimeLeft && --m_lifetimeLeft == 0)
 		return false;
 
-	DEBUG_ASSERTCRASH( m_lifetimeLeft, ( "A particle has an infinite lifetime..." ));
+	DEBUG_ASSERTCRASH( m_lifetimeLeft, ( "A particle has an infinite lifetime... ParticleSystem '%s' (system id %d), Lifetime range %g..%g frames%s",
+		( m_system && m_system->getTemplate() ) ? m_system->getTemplate()->getName().str() : "<unknown>",
+		m_system ? (Int)m_system->getSystemID() : 0,
+		m_system ? m_system->m_lifetime.getMinimumValue() : 0.0f,
+		m_system ? m_system->m_lifetime.getMaximumValue() : 0.0f,
+		( m_system && m_system->m_lifetime.getMinimumValue() < 1.0f ) ? " (minimum below 1 -- rolls under 1.0 truncate to 0 = infinite; set the minimum Lifetime to at least 1)" : "" ));
 
 	// TheSuperHackers @info The logic update changes the velocity and the rates, and the render update only
 	// integrates them, because a rate that stays constant over a logic frame splits into any number of render

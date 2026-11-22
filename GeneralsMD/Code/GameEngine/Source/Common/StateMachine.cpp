@@ -103,6 +103,47 @@ std::vector<StateID> * State::getTransitions()
 }
 #endif
 
+#if defined(DEBUG_LOGGING) || defined(DEBUG_CRASHING)
+//-----------------------------------------------------------------------------
+// GeneralsMod @debug: describe one state-transition hop (owner, machine, state, result, where it
+// goes next, goal) so a runaway transition loop can be identified from the log.
+static const char* debugStateResultName( StateReturnType status )
+{
+	if( IS_STATE_SLEEP( status ) )	return "SLEEP";
+	switch( status )
+	{
+		case STATE_CONTINUE:	return "CONTINUE";
+		case STATE_SUCCESS:		return "SUCCESS";
+		case STATE_FAILURE:		return "FAILURE";
+		default:						return "?";
+	}
+}
+
+static AsciiString debugDescribeTransitionHop( State *st, Int depth, StateReturnType status, StateID successID, StateID failureID )
+{
+	AsciiString machineName = "?";
+	AsciiString stateName = "?";
+#ifdef STATE_MACHINE_DEBUG
+	machineName = st->getMachine()->getName();
+	stateName = st->getName();
+#endif
+
+	const Object *owner = st->getMachineOwner();
+	const Object *goalObj = st->getMachineGoalObject();
+	const Coord3D *goalPos = st->getMachineGoalPosition();
+
+	AsciiString desc;
+	desc.format( "frame %d depth %d: owner '%s' (id %d), machine '%s', state '%s' (id %d) returned %s -> onSuccess %d / onFailure %d, goalObj '%s' (id %d), goalPos (%.1f,%.1f)",
+		TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, depth,
+		owner ? owner->getTemplate()->getName().str() : "<none>", owner ? (Int)owner->getID() : 0,
+		machineName.str(), stateName.str(), (Int)st->getID(), debugStateResultName( status ),
+		(Int)successID, (Int)failureID,
+		goalObj ? goalObj->getTemplate()->getName().str() : "<none>", goalObj ? (Int)goalObj->getID() : 0,
+		goalPos ? goalPos->x : 0.0f, goalPos ? goalPos->y : 0.0f );
+	return desc;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 /**
  * Given a return code, handle state transitions
@@ -112,9 +153,15 @@ StateReturnType State::friend_checkForTransitions( StateReturnType status )
 	static Int checkfortransitionsnum = 0;
 
 	StIncrementer inc(checkfortransitionsnum);
+#ifdef DEBUG_LOGGING
+	// GeneralsMod @debug: close to the limit -- log every hop so the repeating states show up in order.
+	if (checkfortransitionsnum >= 15 && checkfortransitionsnum < 20)
+		DEBUG_LOG(("checkForTransitions %s", debugDescribeTransitionHop( this, checkfortransitionsnum, status, m_successStateID, m_failureStateID ).str()));
+#endif
 	if (checkfortransitionsnum >= 20)
 	{
-		DEBUG_CRASH(("checkfortransitionsnum is > 20"));
+		DEBUG_CRASH(("checkfortransitionsnum is > 20 -- runaway state transition loop (see the 'checkForTransitions' lines above for the chain). %s",
+			debugDescribeTransitionHop( this, checkfortransitionsnum, status, m_successStateID, m_failureStateID ).str()));
 		return STATE_FAILURE;
 	}
 
@@ -205,9 +252,14 @@ StateReturnType State::friend_checkForSleepTransitions( StateReturnType status )
 	static Int checkfortransitionsnum = 0;
 
 	StIncrementer inc(checkfortransitionsnum);
+#ifdef DEBUG_LOGGING
+	if (checkfortransitionsnum >= 15 && checkfortransitionsnum < 20)
+		DEBUG_LOG(("checkForSleepTransitions %s", debugDescribeTransitionHop( this, checkfortransitionsnum, status, m_successStateID, m_failureStateID ).str()));
+#endif
 	if (checkfortransitionsnum >= 20)
 	{
-		DEBUG_CRASH(("checkforsleeptransitionsnum is > 20"));
+		DEBUG_CRASH(("checkforsleeptransitionsnum is > 20 -- runaway state transition loop (see the 'checkForSleepTransitions' lines above for the chain). %s",
+			debugDescribeTransitionHop( this, checkfortransitionsnum, status, m_successStateID, m_failureStateID ).str()));
 		return STATE_FAILURE;
 	}
 

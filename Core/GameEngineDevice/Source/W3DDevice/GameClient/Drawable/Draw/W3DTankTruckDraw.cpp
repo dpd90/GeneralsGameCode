@@ -380,6 +380,15 @@ void W3DTankTruckDraw::setHidden(Bool h)
 	}
 }
 
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 09/11/2026: our W3DModelDraw RequiredConditions/ForbiddenConditions gate just closed --
+// stop our own emitters (setHidden() is not called virtually for the gate; see applyConditionGate()).
+void W3DTankTruckDraw::onConditionGateClosed()
+{
+	enableWheelEmitters(false);
+	stopMoveDebris();
+}
+
 /**Update uv coordinates on each tread object to simulate movement*/
 void W3DTankTruckDraw::updateTreadPositions(Real uvDelta)
 {

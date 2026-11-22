@@ -129,6 +129,7 @@ enum SpecialPowerType CPP_11(: Int)
 
 	SPECIAL_SWITCH_STATE, ///< GeneralsMod @feature Dimitar 09/09/2026, renamed 14/09/2026 (was LAZR_SPECIAL_SWITCH_STATE): dedicated enum for SwitchStateV2, do not reuse for anything else
 	SPECIAL_SHIELD_GENERATOR, ///< GeneralsMod @feature Dimitar 14/09/2026: dedicated enum for ShieldGeneratorActivateV2/ShieldGeneratorUpdateV2, added purely for readability (distinct from SPECIAL_SWITCH_STATE even though both are self-only, no-target special powers) -- do not reuse for anything else
+	SPECIAL_BUILD_TIME_MODIFIER, ///< GeneralsMod @feature Dimitar 10/11/2026: dedicated enum for BuildTimeModifierPowerV2 (button-less, science-activated passive, like SPECIAL_CASH_BOUNTY) -- do not reuse for anything else
 
 	SPECIALPOWER_COUNT,
 	// don't forget to add new strings to SpecialPowerMaskType::s_bitNameList[]

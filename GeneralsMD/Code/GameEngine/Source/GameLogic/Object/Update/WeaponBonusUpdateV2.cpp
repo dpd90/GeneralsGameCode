@@ -43,6 +43,7 @@
 
 #define DEFINE_WEAPONBONUSCONDITION_NAMES///< GeneralsMod @feature Dimitar 08/09/2026: TheWeaponBonusNames is `static`, so each TU that uses it needs this, same as WeaponBonusUpdate.cpp does
 
+#include "Common/ThingTemplate.h"///< GeneralsMod @feature Dimitar 22/10/2026: getTemplate()->getName() for the detonation-effect conflict message
 #include "GameLogic/Module/ContainModule.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/PartitionManager.h"
@@ -66,6 +67,20 @@ WeaponBonusUpdateV2ModuleData::WeaponBonusUpdateV2ModuleData()
 	m_tintColor.red = 0.0f;
 	m_tintColor.green = 0.0f;
 	m_tintColor.blue = 0.0f;
+	m_hasTint = FALSE;							///< GeneralsMod @feature Dimitar 22/10/2026
+	m_affectOnlyProjectiles = FALSE;
+	m_detonationFX = nullptr;
+	m_detonationOCL = nullptr;
+}
+
+//-----------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 22/10/2026: a normal RGB parse that also records that a Tint line was present,
+// so a module with no Tint line contributes no tint instead of a black override / the default FRENZY red.
+/*static*/ void WeaponBonusUpdateV2ModuleData::parseTint( INI* ini, void *instance, void *store, const void* userData )
+{
+	INI::parseRGBColor( ini, instance, store, userData );
+	WeaponBonusUpdateV2ModuleData *self = (WeaponBonusUpdateV2ModuleData*)( (char*)store - offsetof( WeaponBonusUpdateV2ModuleData, m_tintColor ) );
+	self->m_hasTint = TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -80,7 +95,11 @@ void WeaponBonusUpdateV2ModuleData::buildFieldParse(MultiIniFieldParse& p)
 		{ "BonusDelay",							INI::parseDurationUnsignedInt,	nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_bonusDelay ) },
 		{ "BonusRange",							INI::parseReal,									nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_bonusRange ) },
 		{ "BonusConditionType",			INI::parseIndexList,	TheWeaponBonusNames, offsetof( WeaponBonusUpdateV2ModuleData, m_bonusConditionType ) },
-		{ "Tint",										INI::parseRGBColor,							nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_tintColor ) },
+		{ "Tint",										WeaponBonusUpdateV2ModuleData::parseTint,	nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_tintColor ) },
+		// GeneralsMod @feature Dimitar 22/10/2026:
+		{ "AffectOnlyProjectiles",	INI::parseBool,									nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_affectOnlyProjectiles ) },
+		{ "DetonationFX",						INI::parseFXList,								nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_detonationFX ) },
+		{ "DetonationOCL",					INI::parseObjectCreationList,		nullptr, offsetof( WeaponBonusUpdateV2ModuleData, m_detonationOCL ) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
   p.add(dataFieldParse);
@@ -92,6 +111,14 @@ void WeaponBonusUpdateV2ModuleData::buildFieldParse(MultiIniFieldParse& p)
 WeaponBonusUpdateV2::WeaponBonusUpdateV2( Thing *thing, const ModuleData* moduleData ) : UpdateModule( thing, moduleData )
 {
 	setWakeFrame(getObject(), UPDATE_SLEEP_NONE);
+
+	// GeneralsMod @feature Dimitar 22/10/2026: projectiles only carry their launcher's bonus FLAGS, not which aura set
+	// them, so DetonationFX / DetonationOCL are looked up per condition in TheWeaponStore. Registering from the
+	// constructor also re-registers on save-load (objects are re-constructed), and entries live until the game resets,
+	// so a projectile still in flight after this unit dies still plays its effect.
+	const WeaponBonusUpdateV2ModuleData *data = getWeaponBonusUpdateV2ModuleData();
+	if( TheWeaponStore && ( data->m_detonationFX || data->m_detonationOCL ) )
+		TheWeaponStore->registerBonusDetonationEffect( data->m_bonusConditionType, data->m_detonationFX, data->m_detonationOCL, getObject()->getTemplate()->getName() );
 }
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
@@ -109,13 +136,16 @@ struct tempWeaponBonusDataV2 // GeneralsMod @feature Dimitar 08/09/2026: V2 of t
 	KindOfMaskType m_requiredMask;
 	KindOfMaskType m_forbiddenMask;
 	RGBColor m_tintColor;
+	Bool m_hasTint;								///< GeneralsMod @feature Dimitar 22/10/2026
+	Bool m_affectOnlyProjectiles;	///< GeneralsMod @feature Dimitar 22/10/2026
 };
 void containIteratingDoTempWeaponBonusV2( Object *passenger, void *voidData)
 {
 	tempWeaponBonusDataV2 *data = (tempWeaponBonusDataV2 *)voidData;
 
 	if( passenger->isKindOfMulti(data->m_requiredMask, data->m_forbiddenMask) )
-		passenger->doTempWeaponBonus(data->m_type, data->m_duration, &data->m_tintColor);
+		passenger->doTempWeaponBonus(data->m_type, data->m_duration, data->m_hasTint ? &data->m_tintColor : nullptr,
+			TRUE /*V2 never falls back to the default FRENZY red*/, data->m_affectOnlyProjectiles);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -153,12 +183,17 @@ UpdateSleepTime WeaponBonusUpdateV2::update()
 	weaponBonusData.m_requiredMask = data->m_requiredAffectKindOf;
 	weaponBonusData.m_forbiddenMask = data->m_forbiddenAffectKindOf;
 	weaponBonusData.m_tintColor = scaledTintColor;
+	weaponBonusData.m_hasTint = data->m_hasTint;
+	weaponBonusData.m_affectOnlyProjectiles = data->m_affectOnlyProjectiles;
 
 	for( Object *currentObj = iter->first(); currentObj != nullptr; currentObj = iter->next() )
 	{
 		if( currentObj->isKindOfMulti(data->m_requiredAffectKindOf, data->m_forbiddenAffectKindOf) )
 		{
-			currentObj->doTempWeaponBonus(data->m_bonusConditionType, data->m_bonusDuration, &scaledTintColor);
+			// GeneralsMod @feature Dimitar 22/10/2026: no Tint line = contribute no tint (never the default FRENZY red);
+			// AffectOnlyProjectiles restricts the bonus to weapons with a ProjectileObject.
+			currentObj->doTempWeaponBonus(data->m_bonusConditionType, data->m_bonusDuration, data->m_hasTint ? &scaledTintColor : nullptr,
+				TRUE, data->m_affectOnlyProjectiles);
 		}
 
 		if( currentObj->getContain() )

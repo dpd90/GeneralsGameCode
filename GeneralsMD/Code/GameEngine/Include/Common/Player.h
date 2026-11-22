@@ -388,6 +388,12 @@ public:
 	/// Returns production cost change based on typeof (Used for upgrades)
 	Real getProductionCostChangeBasedOnKindOf( KindOfMaskType kindOf ) const;
 
+	// GeneralsMod @feature Dimitar 10/11/2026: build-time twin of the cost list above (used by BuildTimeModifierPowerV2)
+	void addKindOfProductionTimeChange( KindOfMaskType kindOf, Real percent );
+	void removeKindOfProductionTimeChange( KindOfMaskType kindOf, Real percent );
+	/// Returns build time multiplier based on kindof (1.0 = unchanged)
+	Real getProductionTimeChangeBasedOnKindOf( KindOfMaskType kindOf ) const;
+
 	/** Return bonus or penalty for construction of this thing.
 	*/
 	Real getProductionCostChangePercent( AsciiString buildTemplateName ) const;
@@ -818,6 +824,7 @@ private:
 	typedef std::list<KindOfPercentProductionChange*> KindOfPercentProductionChangeList;
 	typedef KindOfPercentProductionChangeList::iterator KindOfPercentProductionChangeListIt;
 	mutable KindOfPercentProductionChangeList m_kindOfPercentProductionChangeList;
+	mutable KindOfPercentProductionChangeList m_kindOfPercentProductionTimeChangeList;	///< GeneralsMod @feature Dimitar 10/11/2026: BuildTimeModifierPowerV2
 
 
 	typedef std::list<SpecialPowerReadyTimerType> SpecialPowerReadyTimerList;

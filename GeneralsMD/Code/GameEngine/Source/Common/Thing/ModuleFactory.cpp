@@ -56,6 +56,7 @@
 #include "GameLogic/Module/BreakApartDeathBehaviorV2.h"
 #include "GameLogic/Module/SlowDeathBehavior.h"
 #include "GameLogic/Module/HelicopterSlowDeathUpdate.h"
+#include "GameLogic/Module/BreakApartHelicopterSlowDeathBehaviorV2.h"///< GeneralsMod @feature Dimitar 10/11/2026
 #include "GameLogic/Module/NeutronMissileSlowDeathUpdate.h"
 #include "GameLogic/Module/CaveContain.h"
 #include "GameLogic/Module/OpenContain.h"
@@ -92,6 +93,7 @@
 #include "GameLogic/Module/MinefieldBehavior.h"
 #include "GameLogic/Module/BattleBusSlowDeathBehavior.h"
 #include "GameLogic/Module/JetSlowDeathBehavior.h"
+#include "GameLogic/Module/BreakApartJetSlowDeathBehaviorV2.h"
 
 // die includes
 #include "GameLogic/Module/CreateCrateDie.h"
@@ -125,6 +127,7 @@
 #include "GameLogic/Module/FireSpreadUpdate.h"
 #include "GameLogic/Module/FirestormDynamicGeometryInfoUpdate.h"
 #include "GameLogic/Module/FireWeaponUpdate.h"
+#include "GameLogic/Module/FireUpdateV2.h"///< GeneralsMod @feature Dimitar 11/11/2026
 #include "GameLogic/Module/FlammableUpdate.h"
 #include "GameLogic/Module/FloatUpdate.h"
 #include "GameLogic/Module/TensileFormationUpdate.h"
@@ -177,6 +180,7 @@
 #include "GameLogic/Module/RailedTransportAIUpdate.h"
 #include "GameLogic/Module/RailroadGuideAIUpdate.h"
 #include "GameLogic/Module/SlavedUpdate.h"
+#include "GameLogic/Module/SlavedFollowUpdateV2.h"
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"
 #include "GameLogic/Module/SpecialAbilityUpdate.h"
 #include "GameLogic/Module/SwitchStateV2.h"
@@ -292,6 +296,7 @@
 #include "GameLogic/Module/ShieldGeneratorActivateV2.h"///< GeneralsMod @feature Dimitar 13/09/2026
 #include "GameLogic/Module/SpyVisionSpecialPower.h"
 #include "GameLogic/Module/CashBountyPower.h"
+#include "GameLogic/Module/BuildTimeModifierPowerV2.h"///< GeneralsMod @feature Dimitar 10/11/2026
 #include "GameLogic/Module/CleanupAreaPower.h"
 #include "GameLogic/Module/FireWeaponPower.h"
 
@@ -356,6 +361,7 @@ void ModuleFactory::init()
 	addModule( BreakApartDeathBehaviorV2 );
 	addModule( SlowDeathBehavior );
 	addModule( HelicopterSlowDeathBehavior );
+	addModule( BreakApartHelicopterSlowDeathBehaviorV2 );///< GeneralsMod @feature Dimitar 10/11/2026
 	addModule( NeutronMissileSlowDeathBehavior );
 	addModule( CaveContain );
 	addModule( OpenContain );
@@ -392,6 +398,7 @@ void ModuleFactory::init()
 	addModule( MinefieldBehavior );
 	addModule( BattleBusSlowDeathBehavior );
 	addModule( JetSlowDeathBehavior );
+	addModule( BreakApartJetSlowDeathBehaviorV2 );
 	addModule( RailroadBehavior );
 	addModule( SpawnBehavior );
 
@@ -436,6 +443,7 @@ void ModuleFactory::init()
 	addModule( NeutronMissileUpdate );
 	addModule( FireSpreadUpdate );
 	addModule( FireWeaponUpdate );
+	addModule( FireUpdateV2 );///< GeneralsMod @feature Dimitar 11/11/2026
 	addModule( FlammableUpdate );
 	addModule( FloatUpdate );
 	addModule( TensileFormationUpdate );
@@ -475,6 +483,7 @@ void ModuleFactory::init()
 	addModule( SpawnPointProductionExitUpdate );
 	addModule( SpyVisionUpdate );
 	addModule( SlavedUpdate );
+	addModule( SlavedFollowUpdateV2 );
 	addModule( MobMemberSlavedUpdate );
 	addModule( OCLUpdate );
 	addModule( SpecialAbilityUpdate );
@@ -594,6 +603,7 @@ void ModuleFactory::init()
 	addModule( ShieldGeneratorActivateV2 );///< GeneralsMod @feature Dimitar 13/09/2026
 	addModule( SpyVisionSpecialPower );
 	addModule( CashBountyPower );
+	addModule( BuildTimeModifierPowerV2 );///< GeneralsMod @feature Dimitar 10/11/2026
 	addModule( CleanupAreaPower );
 
 	// destroy modules

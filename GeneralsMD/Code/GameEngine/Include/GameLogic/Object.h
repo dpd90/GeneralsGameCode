@@ -228,7 +228,9 @@ public:
 	void healCompletely();														///< Restore max health to this Object
 	void notifySubdualDamage( Real amount );///< At this level, we just pass this on to our helper and do a special tint
 	void doStatusDamage( ObjectStatusTypes status, Real duration );///< At this level, we just pass this on to our helper
-	void doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride = nullptr );///< At this level, we just pass this on to our helper. GeneralsMod @feature Dimitar 08/09/2026: optional custom tint color for WeaponBonusUpdateV2
+	void doTempWeaponBonus( WeaponBonusConditionType status, UnsignedInt duration, const RGBColor *tintColorOverride = nullptr,
+		Bool suppressDefaultTint = FALSE, Bool projectileOnly = FALSE );///< At this level, we just pass this on to our helper. GeneralsMod @feature Dimitar 08/09/2026: optional custom tint color for WeaponBonusUpdateV2; 22/10/2026: per-condition stacking, no-tint and projectile-only options (see TempWeaponBonusHelper.h)
+	WeaponBonusConditionFlags getProjectileOnlyWeaponBonusFlags() const;///< GeneralsMod @feature Dimitar 22/10/2026: active temp-bonus bits that only apply to weapons with a ProjectileObject
 
 	void scoreTheKill( const Object *victim );						///< I just killed this object.
 	void onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel newLevel, Bool provideFeedback = TRUE );	///< I just achieved this level right this moment
@@ -554,7 +556,7 @@ public:
 	void clearWeaponSetFlag(WeaponSetType wst);
 	inline Bool testWeaponSetFlag(WeaponSetType wst) const { return m_curWeaponSetFlags.test(wst); }
 	inline const WeaponSetFlags& getWeaponSetFlags() const { return m_curWeaponSetFlags; }
-	Bool setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockType ){ return m_weaponSet.setWeaponLock( weaponSlot, lockType ); }
+	Bool setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockType ){ return m_weaponSet.setWeaponLock( weaponSlot, lockType, this ); }
 	void releaseWeaponLock(WeaponLockType lockType){ m_weaponSet.releaseWeaponLock(lockType); }
 	Bool isCurWeaponLocked() const { return m_weaponSet.isCurWeaponLocked(); }
 

@@ -1620,6 +1620,7 @@ void WeaponTemplate::dealDamageInternal(ObjectID sourceID, ObjectID victimID, co
 //-------------------------------------------------------------------------------------------------
 WeaponStore::WeaponStore()
 {
+	clearBonusDetonationEffects();///< GeneralsMod @feature Dimitar 22/10/2026
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1643,6 +1644,62 @@ void WeaponStore::handleProjectileDetonation(const WeaponTemplate* wt, const Obj
 	w->loadAmmoNow(source);
 	w->fireProjectileDetonationWeapon( source, pos, extraBonusFlags, inflictDamage );
 	deleteInstance(w);
+
+	// GeneralsMod @feature Dimitar 22/10/2026: extra FX/OCL for every bonus condition the projectile carried from its
+	// launcher that has a registered detonation effect (WeaponBonusUpdateV2 DetonationFX / DetonationOCL). All three
+	// projectile types (DumbProjectileBehavior, MissileAIUpdate, MissileAIUpdateV2) detonate through here, so this one
+	// loop covers them all with no per-projectile state. NoDamage (cosmetic) detonations are skipped.
+	if( inflictDamage && extraBonusFlags != 0 )
+	{
+		for( Int i = 0; i < WEAPONBONUSCONDITION_COUNT; ++i )
+		{
+			if( ( extraBonusFlags & ( 1 << i ) ) == 0 )
+				continue;
+			const BonusDetonationEffect &effect = m_bonusDetonationEffects[i];
+			if( effect.m_fx )
+				FXList::doFXPos( effect.m_fx, pos );
+			if( effect.m_ocl && source )
+				ObjectCreationList::create( effect.m_ocl, source, nullptr );
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 22/10/2026
+void WeaponStore::clearBonusDetonationEffects()
+{
+	for( Int i = 0; i < WEAPONBONUSCONDITION_COUNT; ++i )
+	{
+		m_bonusDetonationEffects[i].m_fx = nullptr;
+		m_bonusDetonationEffects[i].m_ocl = nullptr;
+		m_bonusDetonationEffects[i].m_ownerName.clear();
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsMod @feature Dimitar 22/10/2026
+void WeaponStore::registerBonusDetonationEffect( WeaponBonusConditionType cond, const FXList* fx, const ObjectCreationList* ocl, const AsciiString& ownerName )
+{
+	if( cond < 0 || cond >= WEAPONBONUSCONDITION_COUNT )
+		return;
+	if( fx == nullptr && ocl == nullptr )
+		return;	// nothing to register; an aura without DetonationFX/OCL never conflicts with one that has them
+
+	BonusDetonationEffect &effect = m_bonusDetonationEffects[cond];
+	if( effect.m_fx == nullptr && effect.m_ocl == nullptr )
+	{
+		effect.m_fx = fx;
+		effect.m_ocl = ocl;
+		effect.m_ownerName = ownerName;
+		return;
+	}
+
+	if( effect.m_fx != fx || effect.m_ocl != ocl )
+	{
+		DEBUG_CRASH(( "WeaponBonusUpdateV2: '%s' sets a different DetonationFX/DetonationOCL for bonus condition %s than '%s' already did. "
+			"Only one detonation effect per condition is supported - give each spark aura its own BonusConditionType. Keeping the first one.",
+			ownerName.str(), TheWeaponBonusNames[cond], effect.m_ownerName.str() ));
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1787,6 +1844,7 @@ void WeaponStore::reset()
 
 	deleteAllDelayedDamage();
 	resetWeaponTemplates();
+	clearBonusDetonationEffects();///< GeneralsMod @feature Dimitar 22/10/2026: re-registered by WeaponBonusUpdateV2 objects of the next game/load
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1946,6 +2004,15 @@ void Weapon::computeBonus(const Object *source, WeaponBonusConditionFlags extraB
 	bonus.clear();
 	WeaponBonusConditionFlags flags = source->getWeaponBonusCondition();
 	//CRCDEBUG_LOG(("Weapon::computeBonus() - flags are %X for %s", flags, DescribeObject(source).str()));
+
+	// GeneralsMod @feature Dimitar 22/10/2026: WeaponBonusUpdateV2 AffectOnlyProjectiles. Conditions applied as
+	// projectile-only are removed from the shooter's OWN flags when this weapon has no ProjectileObject (instant
+	// weapons get nothing from them). Weapons with a ProjectileObject keep them at launch (range / rate of fire /
+	// pre-attack) and get the damage at detonation via extraBonusFlags, which is never stripped.
+	const Bool isProjectileWeapon = ( m_template->getProjectileTemplate() != nullptr );
+	if( !isProjectileWeapon )
+		flags &= ~source->getProjectileOnlyWeaponBonusFlags();
+
 	flags |= extraBonusFlags;
 
 	if( source->getContainedBy() )
@@ -1953,7 +2020,12 @@ void Weapon::computeBonus(const Object *source, WeaponBonusConditionFlags extraB
 		// We may be able to add in our container's flags
 		const ContainModuleInterface *theirContain = source->getContainedBy()->getContain();
 		if( theirContain && theirContain->isWeaponBonusPassedToPassengers() )
-			flags |= theirContain->getWeaponBonusPassedToPassengers();
+		{
+			WeaponBonusConditionFlags passed = theirContain->getWeaponBonusPassedToPassengers();
+			if( !isProjectileWeapon )
+				passed &= ~source->getContainedBy()->getProjectileOnlyWeaponBonusFlags();///< GeneralsMod @feature Dimitar 22/10/2026
+			flags |= passed;
+		}
 	}
 
 	if (TheGlobalData->m_weaponBonusSet)

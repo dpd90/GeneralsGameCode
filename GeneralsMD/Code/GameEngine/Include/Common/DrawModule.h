@@ -116,7 +116,11 @@ public:
 	// case the implementer falls back to mirroring the spawned debris Drawable's own plain
 	// transform (the old, pre-19/09/2026 behavior) -- a caller with no live transform available
 	// (or a bone name that doesn't resolve on the live model) degrades safely rather than failing.
-	virtual void setBreakApartPiece(const AsciiString& modelName, const AsciiString& boneName, const Matrix3D* liveBoneWorldTransform = nullptr) {};
+	// GeneralsMod @feature Dimitar 26/10/2026: attachedBoneNames (optional) -- extra bones whose
+	// subobjects stay VISIBLE on this piece alongside boneName's own, in their bind-pose position
+	// relative to it, so a part that breaks off carries the parts still attached under it as one
+	// rigid piece (BreakApartJetSlowDeathBehaviorV2's per-part rolls). nullptr = just boneName.
+	virtual void setBreakApartPiece(const AsciiString& modelName, const AsciiString& boneName, const Matrix3D* liveBoneWorldTransform = nullptr, const std::vector<AsciiString>* attachedBoneNames = nullptr) {};
 
 	// GeneralsMod @feature Dimitar 19/09/2026: sibling to setBreakApartPiece() above, for the
 	// complementary "everything that did NOT break apart" piece (BreakApartDeathBehaviorV2's
@@ -132,6 +136,9 @@ public:
 	virtual void setFullyObscuredByShroud(Bool fullyObscured) = 0;
 
 	virtual Bool isVisible() const { return true; }	///< for limiting tree sway, etc to visible objects
+	// GeneralsMod @feature Dimitar 09/11/2026: TRUE while a W3DModelDraw's RequiredConditions/ForbiddenConditions gate is closed;
+	// Drawable::draw() then skips doDrawModule() for it. Non-pure, default FALSE: nothing else overrides it.
+	virtual Bool isDrawModuleSuppressed() const { return FALSE; }
 
 	virtual void reactToTransformChange(const Matrix3D* oldMtx, const Coord3D* oldPos, Real oldAngle) = 0;
 	virtual void reactToGeometryChange() = 0;

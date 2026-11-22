@@ -93,6 +93,7 @@ public:
 
 protected:
 	virtual void onRenderObjRecreated() override;
+	virtual void onConditionGateClosed() override;	///< GeneralsMod @feature Dimitar 09/11/2026
 
 protected:
 	Bool						m_effectsInitialized;

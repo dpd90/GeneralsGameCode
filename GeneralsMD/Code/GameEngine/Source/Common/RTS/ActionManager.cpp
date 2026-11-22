@@ -1583,6 +1583,7 @@ Bool ActionManager::canDoSpecialPowerAtLocation( const Object *obj, const Coord3
 			case SPECIAL_REMOTE_CHARGES:
 			case SPECIAL_TIMED_CHARGES:
 			case SPECIAL_CASH_BOUNTY:
+			case SPECIAL_BUILD_TIME_MODIFIER: ///< GeneralsMod @feature Dimitar 10/11/2026
 			case SPECIAL_CHANGE_BATTLE_PLANS:
 				return false;
 		}
@@ -1657,6 +1658,7 @@ Bool ActionManager::canDoSpecialPowerAtObject( const Object *obj, const Object *
 		switch( spTemplate->getSpecialPowerType() )
 		{
 			case SPECIAL_CASH_BOUNTY:
+			case SPECIAL_BUILD_TIME_MODIFIER: ///< GeneralsMod @feature Dimitar 10/11/2026
 				return false;
 
 			case SPECIAL_BATTLESHIP_BOMBARDMENT:
@@ -1950,6 +1952,7 @@ Bool ActionManager::canDoSpecialPower( const Object *obj, const SpecialPowerTemp
 			case SLTH_SPECIAL_GPS_SCRAMBLER:
 			case SPECIAL_PARTICLE_UPLINK_CANNON:
 			case SPECIAL_CASH_BOUNTY:
+			case SPECIAL_BUILD_TIME_MODIFIER: ///< GeneralsMod @feature Dimitar 10/11/2026
  			case SPECIAL_CLEANUP_AREA:
 			case SPECIAL_HELIX_NAPALM_BOMB:
 			case SPECIAL_SNEAK_ATTACK:

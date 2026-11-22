@@ -261,7 +261,7 @@ public:
 	UnsignedInt getMostPercentReadyToFireAnyWeapon() const;
 	inline UnsignedInt getNthCommandSourceMask( WeaponSlotType n ) const { return m_curWeaponTemplateSet ? m_curWeaponTemplateSet->getNthCommandSourceMask( n ) : 0; }
 
-	Bool setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockType );
+	Bool setWeaponLock( WeaponSlotType weaponSlot, WeaponLockType lockType, const Object *owner = nullptr );	///< GeneralsMod @debug: owner is only used for the failure log
 	void releaseWeaponLock(WeaponLockType lockType);
 	Bool isSharedReloadTime() const;
 

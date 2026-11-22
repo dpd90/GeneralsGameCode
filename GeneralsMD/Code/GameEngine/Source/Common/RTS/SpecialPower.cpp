@@ -131,6 +131,7 @@ const char* const SpecialPowerMaskType::s_bitNameList[] =
 
 	"SPECIAL_SWITCH_STATE",
 	"SPECIAL_SHIELD_GENERATOR",
+	"SPECIAL_BUILD_TIME_MODIFIER", ///< GeneralsMod @feature Dimitar 10/11/2026
 
 	nullptr
 };

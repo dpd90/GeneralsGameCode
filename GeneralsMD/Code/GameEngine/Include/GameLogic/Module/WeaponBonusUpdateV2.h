@@ -32,6 +32,30 @@
 //						except this gives a Weapon Bonus instead of health, with a
 //						modder-specified tint color.
 //
+//	GeneralsMod @feature Dimitar 22/10/2026 additions:
+//	- Stacking: different BonusConditionTypes stack (with each other and with
+//	  vanilla WeaponBonusUpdate); the same condition from several auras counts
+//	  once (see TempWeaponBonusHelper).
+//	- Tint is optional: with no Tint line the affected unit is not painted.
+//	  Tints of all active conditions are ADDED (red + blue = violet).
+//	- AffectOnlyProjectiles = Yes: the bonus only applies to weapons that have
+//	  a ProjectileObject (instant weapons are unaffected).
+//	- DetonationFX / DetonationOCL: played where a projectile fired under this
+//	  condition detonates. One set per condition (registered in TheWeaponStore).
+//
+//	  Behavior = WeaponBonusUpdateV2 ModuleTag_EMPCharge
+//	    RequiredAffectKindOf  = VEHICLE
+//	    BonusRange            = 150
+//	    BonusDelay            = 500
+//	    BonusDuration         = 1000
+//	    BonusConditionType    = EMP_CHARGED
+//	    AffectOnlyProjectiles = Yes
+//	    DetonationFX          = FX_EMPSparks
+//	    DetonationOCL         = OCL_EMPSparkBits
+//	    Tint                  = R:0 G:80 B:255
+//	  End
+//	  ; GameData.ini: WeaponBonus = EMP_CHARGED DAMAGE 115%
+//
 //-----------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -45,6 +69,8 @@
 // FORWARD REFERENCES /////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 enum WeaponBonusConditionType CPP_11(: Int);
+class FXList;
+class ObjectCreationList;
 
 //-----------------------------------------------------------------------------
 // TYPE DEFINES ///////////////////////////////////////////////////////////////
@@ -62,6 +88,13 @@ public:
 	Real											m_bonusRange;							///< How far to affect
 	WeaponBonusConditionType	m_bonusConditionType;			///< Status to give
 	RGBColor									m_tintColor;							///< GeneralsMod @feature: custom tint color, same for all kindofs
+	// GeneralsMod @feature Dimitar 22/10/2026:
+	Bool											m_hasTint;								///< TRUE only if the INI has a Tint line; no Tint = the unit is not painted at all
+	Bool											m_affectOnlyProjectiles;	///< bonus only applies to weapons with a ProjectileObject
+	const FXList*							m_detonationFX;						///< played where a projectile fired under this bonus detonates
+	const ObjectCreationList*	m_detonationOCL;					///< created where a projectile fired under this bonus detonates
+
+	static void parseTint( INI* ini, void *instance, void *store, const void* userData );
 
 	static void buildFieldParse(MultiIniFieldParse& p);
 };

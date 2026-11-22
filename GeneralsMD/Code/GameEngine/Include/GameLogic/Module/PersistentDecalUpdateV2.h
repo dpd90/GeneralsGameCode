@@ -37,7 +37,7 @@
 //
 //	Deliberately minimal (no fade, no resize, no throb, no revert): upgradeImplementation() paints
 //	the decal exactly once and the object goes back to permanent sleep -- update() should in
-//	practice never actually run. The decal is NOT explicitly cleaned up on death: W3DModelDraw's
+//	practice never actually run. On removal the decal is NOT explicitly cleaned up (see RemoveOnDeath below for death): W3DModelDraw's
 //	own destructor already releases m_terrainDecal like it does for the chem suit/fake structure
 //	cases, so nothing extra is needed here. The unit's own regular shadow (W3DModelDraw's separate
 //	m_shadow member) is completely untouched by any of this -- m_terrainDecal/m_shadow are two
@@ -64,6 +64,19 @@
 //	    painted, and doesn't turn with it (counter-rotated every frame via DrawModule::
 //	    setTerrainDecalAngle). Note: a decal on a ScaledAttachmentUpdateV2 attachment that already uses
 //	    FollowOwnerRotation = No doesn't need this -- that attachment object itself never turns.
+//	  Both modes only push a value when it changes. That relies on W3DModelDraw keeping the pushed
+//	  size/opacity/angle across a ConditionState model swap (GeneralsMod @bugfix 10/11/2026,
+//	  W3DModelDraw::reapplyTerrainDecal()) -- before that, a swap (e.g. entering REALLYDAMAGED) put the
+//	  decal back at plain SizeX/SizeY, full opacity and the owner's facing until the value next changed.
+//
+//	GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath (default Yes) / DeathFadeTime (default 0).
+//	Vanilla Object::onDie() does try to drop a dying unit's terrain decal (setTerrainDecalFadeTarget(0)),
+//	but Drawable's fade loop only runs while getTerrainDecalType() != TERRAIN_DECAL_NONE -- and
+//	setPersistentDecal() deliberately leaves the type at TERRAIN_DECAL_NONE. So our decal stayed through
+//	the whole death animation (SlowDeath, flung bodies, etc.) until the object was finally removed. This
+//	module is now also a DieModule: onDie() clears the decal at once, or with DeathFadeTime > 0 fades it
+//	out over that many msec first. A fade in progress is not saved -- loading a save of a dying unit just
+//	clears the decal. RemoveOnDeath = No restores the old behavior.
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -73,6 +86,7 @@
 #define DEFINE_SHADOW_NAMES	// GeneralsMod @feature Dimitar 14/09/2026: need TheShadowNames for the Style field below
 #include "GameClient/Shadow.h"
 #include "GameLogic/Module/CreateModule.h"
+#include "GameLogic/Module/DieModule.h"	// GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath
 #include "GameLogic/Module/UpdateModule.h"
 #include "GameLogic/Module/UpgradeModule.h"
 
@@ -88,6 +102,8 @@ public:
 	ShadowType			m_style;				///< Style -- SHADOW_ALPHA_DECAL (default) or SHADOW_ADDITIVE_DECAL, see TheShadowNames in Shadow.h
 	Bool						m_followObjectScale;	///< FollowObjectScale -- GeneralsMod 02/10/2026: decal size/opacity follow this object's Drawable instance scale/opacity every frame. Default No.
 	Bool						m_followOwnerRotation;	///< FollowOwnerRotation -- GeneralsMod 02/10/2026: No = keep the facing it was painted with. Default Yes.
+	Bool						m_removeOnDeath;	///< RemoveOnDeath -- GeneralsMod 10/11/2026: clear the decal when the object dies (start of the death sequence), not when it is removed. Default Yes.
+	UnsignedInt			m_deathFadeFrames;	///< DeathFadeTime -- GeneralsMod 10/11/2026: msec (parsed to frames) to fade the decal out on death instead of popping it off. Default 0.
 	Bool						m_onlyVisibleToOwningPlayer;	///< OnlyVisibleToOwningPlayer -- if Yes, only the owning player's own client ever paints this decal at all (checked once, same semantics/limitation as RadiusDecalTemplate's field of the same name -- does not react to a later capture)
 
 	PersistentDecalUpdateV2ModuleData()
@@ -99,6 +115,8 @@ public:
 		m_onlyVisibleToOwningPlayer = FALSE;
 		m_followObjectScale = FALSE;
 		m_followOwnerRotation = TRUE;
+		m_removeOnDeath = TRUE;
+		m_deathFadeFrames = 0;
 	}
 
 	static void buildFieldParse(MultiIniFieldParse& p)
@@ -113,6 +131,8 @@ public:
 			{ "OnlyVisibleToOwningPlayer",	INI::parseBool,		nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_onlyVisibleToOwningPlayer ) },
 			{ "FollowObjectScale",	INI::parseBool,				nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_followObjectScale ) },
 			{ "FollowOwnerRotation",	INI::parseBool,			nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_followOwnerRotation ) },
+			{ "RemoveOnDeath",	INI::parseBool,					nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_removeOnDeath ) },
+			{ "DeathFadeTime",	INI::parseDurationUnsignedInt,	nullptr, offsetof( PersistentDecalUpdateV2ModuleData, m_deathFadeFrames ) },
 			{ 0, 0, 0, 0 }
 		};
 
@@ -124,7 +144,7 @@ public:
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-class PersistentDecalUpdateV2 : public UpdateModule, public UpgradeMux, public CreateModuleInterface
+class PersistentDecalUpdateV2 : public UpdateModule, public UpgradeMux, public CreateModuleInterface, public DieModuleInterface
 {
 
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE( PersistentDecalUpdateV2, "PersistentDecalUpdateV2" )
@@ -135,11 +155,15 @@ public:
 	PersistentDecalUpdateV2( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
-	static Int getInterfaceMask() { return UpdateModule::getInterfaceMask() | MODULEINTERFACE_UPGRADE | MODULEINTERFACE_CREATE; }
+	static Int getInterfaceMask() { return UpdateModule::getInterfaceMask() | MODULEINTERFACE_UPGRADE | MODULEINTERFACE_CREATE | MODULEINTERFACE_DIE; }
 
 	// BehaviorModule
 	virtual UpgradeModuleInterface* getUpgrade() override { return this; }
 	virtual CreateModuleInterface* getCreate() override { return this; }
+	virtual DieModuleInterface* getDie() override { return this; }	// GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath
+
+	// DieModuleInterface -- GeneralsMod @bugfix Dimitar 10/11/2026: RemoveOnDeath / DeathFadeTime
+	virtual void onDie( const DamageInfo *damageInfo ) override;
 
 	// UpdateModule
 	virtual UpdateSleepTime update() override;
@@ -181,6 +205,8 @@ private:
 
 	Bool needsPerFrameUpdate() const;	///< FollowObjectScale or FollowOwnerRotation = No
 	void paintDecal( Drawable *draw );	///< setPersistentDecal(), plus the FollowObjectScale first-frame fix
+	void clearDecal( Drawable *draw );	///< setPersistentDecal() with an empty texture -- also clears W3DModelDraw's rebuild cache
+	Bool isDeadAndRemoved() const;			///< RemoveOnDeath and the object is effectively dead
 
 	// saved
 	Real	m_lockedAngle;	///< FollowOwnerRotation = No: world facing captured when the decal was painted
@@ -189,4 +215,8 @@ private:
 	Real	m_lastScale;
 	Real	m_lastOpacity;
 	Real	m_lastAngle;
+
+	// not saved (a fade in progress on save just clears the decal on load -- see loadPostProcess())
+	Bool				m_deathFadeActive;
+	UnsignedInt	m_deathFadeElapsed;
 };

@@ -158,3 +158,16 @@ extern Bool GetBreakApartBoneBindTransform( const AsciiString& modelName, const 
 	* cases the caller should just fall back to no recentering at all (leave the debris Object
 	* anchored at the bone's own raw position, the old behavior). */
 extern Bool GetBreakApartSubObjectLocalCenter( const AsciiString& modelName, const AsciiString& boneName, Vector3* outLocalCenter );
+
+/** GetBreakApartBoneSubObjectNames
+	*
+	* GeneralsMod @feature Dimitar 26/10/2026: appends to *outSubObjectNames the SHORT name (the part
+	* after the "MODEL." container prefix, or the whole name if there is none) of every subobject
+	* attached directly to boneName on the same cached BreakApartModel reference model as the
+	* functions above. Used by BreakApartJetSlowDeathBehaviorV2 to hide the parts that broke off on
+	* the jet's own LIVE model via Drawable::showSubObject(), which matches names the same way
+	* (RenderObjClass::Get_Sub_Object_By_Name() falls back to this suffix comparison) -- so the live
+	* model only needs the same mesh names as the reference model, not the same container name.
+	* Returns false if the model failed to load or boneName doesn't exist in it (same bone-index-0
+	* convention as the other functions); returns true with nothing appended for a pure joint bone. */
+extern Bool GetBreakApartBoneSubObjectNames( const AsciiString& modelName, const AsciiString& boneName, std::vector<AsciiString>* outSubObjectNames );
