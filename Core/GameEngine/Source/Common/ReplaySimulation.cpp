@@ -20,6 +20,7 @@
 
 #include "Common/ReplaySimulation.h"
 
+#include "Common/CRCDebug.h"
 #include "Common/GameEngine.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/Recorder.h"
@@ -170,10 +171,11 @@ int ReplaySimulation::simulateReplaysInWorkerProcesses(const std::vector<AsciiSt
 			filenameWide.translate(filenames[filenamePositionStarted]);
 			UnicodeString command;
 			// Pass -useCwd, so that the worker keeps the working directory that it inherits from this process.
-			command.format(L"\"%s\"%s%s -useCwd -replay \"%s\"",
+			command.format(L"\"%s\"%s%s%s -useCwd -replay \"%s\"",
 				exePath,
 				TheGlobalData->m_windowed ? L" -win" : L"",
 				TheGlobalData->m_headless ? L" -headless" : L"",
+				TheDebugIgnoreReplaySyncErrors ? L" -ignoreReplaySyncErrors" : L"",
 				filenameWide.str());
 
 			processes.push_back(WorkerProcess());
@@ -211,7 +213,8 @@ std::vector<AsciiString> ReplaySimulation::resolveFilenameWildcards(const std::v
 	{
 		if (filename->find('*') || filename->find('?'))
 		{
-			AsciiString dir1 = TheRecorder->getReplayDir();
+			// An absolute path is searched as is, a relative path is searched in the replay directory.
+			AsciiString dir1 = isAbsolutePath(filename->str()) ? AsciiString::TheEmptyString : TheRecorder->getReplayDir();
 			AsciiString dir2 = *filename;
 			AsciiString wildcard = *filename;
 			{
@@ -219,7 +222,7 @@ std::vector<AsciiString> ReplaySimulation::resolveFilenameWildcards(const std::v
 				while (len)
 				{
 					char c = dir2.getCharAt(len-1);
-					if (c == '/' || c == '\\')
+					if (isPathSeparator(c))
 					{
 						wildcard.set(wildcard.str()+dir2.getLength());
 						break;

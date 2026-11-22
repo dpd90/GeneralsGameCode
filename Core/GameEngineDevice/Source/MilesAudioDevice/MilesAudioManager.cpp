@@ -245,7 +245,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 
 			AudioEventRTS *event = playing->m_audioEventRTS.Peek();
 			filenameNoSlashes = event->getFilename();
-			filenameNoSlashes = filenameNoSlashes.reverseFind('\\') + 1;
+			filenameNoSlashes = getFileName(filenameNoSlashes.str());
 
 			// Calculate Sample volume
 			volume = 100.0f;
@@ -265,7 +265,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 			playing = *it;
 			AudioEventRTS *event = playing->m_audioEventRTS.Peek();
 			filenameNoSlashes = event->getFilename();
-			filenameNoSlashes = filenameNoSlashes.reverseFind( '\\' ) + 1;
+			filenameNoSlashes = getFileName(filenameNoSlashes.str());
 
 			// Calculate Sample volume
 			volume = 100.0f;
@@ -302,7 +302,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 
 			AudioEventRTS *event = playing->m_audioEventRTS.Peek();
 			filenameNoSlashes = event->getFilename();
-			filenameNoSlashes = filenameNoSlashes.reverseFind('\\') + 1;
+			filenameNoSlashes = getFileName(filenameNoSlashes.str());
 
 			// Calculate Sample volume
 			volume = 100.0f;
@@ -354,7 +354,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 			playing = *it;
 			AudioEventRTS *event = playing->m_audioEventRTS.Peek();
 			filenameNoSlashes = event->getFilename();
-			filenameNoSlashes = filenameNoSlashes.reverseFind('\\') + 1;
+			filenameNoSlashes = getFileName(filenameNoSlashes.str());
 
 			// Calculate Sample volume
 			volume = 100.0f;
@@ -378,7 +378,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 			playing = *it;
 			AudioEventRTS *event = playing->m_audioEventRTS.Peek();
 			filenameNoSlashes = event->getFilename();
-			filenameNoSlashes = filenameNoSlashes.reverseFind('\\') + 1;
+			filenameNoSlashes = getFileName(filenameNoSlashes.str());
 
 			// Calculate Sample volume
 			volume = 100.0f;
@@ -402,7 +402,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 			playing = *it;
 			AudioEventRTS *event = playing->m_audioEventRTS.Peek();
 			filenameNoSlashes = event->getFilename();
-			filenameNoSlashes = filenameNoSlashes.reverseFind('\\') + 1;
+			filenameNoSlashes = getFileName(filenameNoSlashes.str());
 
 			// Calculate Sample volume
 			volume = 100.0f;
@@ -1053,6 +1053,11 @@ void MilesAudioManager::releaseMilesHandles( PlayingAudio *playing )
 				AIL_register_stream_callback(playing->m_stream, nullptr);
 				AIL_close_stream(playing->m_stream);
 				playing->m_stream = nullptr;
+				// TheSuperHackers @bugfix arcticdolphin 25/10/2026 The speech lock ends when the stream that set it is released.
+				if (playing->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Streaming
+					&& playing->m_audioEventRTS->getUninterruptible()) {
+					setDisallowSpeech(FALSE);
+				}
 			}
 			break;
 		}
@@ -1533,10 +1538,6 @@ void MilesAudioManager::notifyOfAudioCompletion( UnsignedInt handle, UnsignedInt
 	if (!playing) {
 		DEBUG_CRASH(("Audio has completed playing, but we can't seem to find it. - jkmcd"));
 		return;
-	}
-
-	if (getDisallowSpeech() && playing->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Streaming) {
-		setDisallowSpeech(FALSE);
 	}
 
 	if (playing->m_audioEventRTS->getAudioEventInfo()->m_control & AC_LOOP) {

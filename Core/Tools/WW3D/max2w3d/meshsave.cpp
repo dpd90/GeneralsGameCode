@@ -31,41 +31,15 @@
  *                                                                                             *
  *                  Last Update : 10/20/1999997 [GH]                                           *
  *                                                                                             *
- *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- *   MeshSaveClass::MeshSaveClass -- constructor, processes a Max mesh                         *
- *   MeshSaveClass::~MeshSaveClass -- destructor, frees all allocated memory                   *
- *   MeshSaveClass::write_verts -- write the vertex chunk into a wtm file                      *
- *   MeshSaveClass::write_header -- write a mesh header chunk into a wtm file                  *
- *   MeshSaveClass::Write_To_File -- Append the mesh to an open wtm file                       *
- *   MeshSaveClass::write_normals -- writes the vertex normals chunk into a wtm file           *
- *   MeshSaveClass::write_vert_normals -- Writes the surrender normal chunk into a wtm file    *
- *   MeshSaveClass::write_triangles -- Write the triangles chunk into a wtm file.              *
- *   MeshSaveClass::write_sr_triangles -- writes the triangles in surrender friendly format    *
- *   MeshSaveClass::write_triangles -- write the triangles chunk                               *
- *   MeshSaveClass::compute_surrender_vertex -- Compute the surrender vertex normals           *
- *   MeshSaveClass::setup_material -- Gets the texture names and base colors for a material    *
- *   MeshSaveClass::compute_bounding_volumes -- computes a bounding box and bounding sphere for*
- *   MeshSaveClass::set_transform -- set the default transformation matrix for the mesh        *
- *   MeshSaveClass::compute_physical_properties -- computes the volume and moment of inertia   *
- *   MeshSaveClass::prep_mesh -- pre-transform the MAX mesh by a specified matrix              *
- *   MeshSaveClass::write_user_text -- write the user text chunk                               *
- *   MeshSaveClass::get_htree_bone_index_for_inode -- searches the htree for the given INode   *
- *   MeshSaveClass::get_skin_modifier_objects -- Searches for the WWSkin modifier for this mes *
- *   MeshSaveClass::inv_deform_mesh -- preprocess the mesh for skinning                        *
- *   MeshSaveClass::create_materials -- create the materials for this mesh                     *
- *   MeshSaveClass::write_ps2_shaders -- Write shaders specific to the PS2 in their own chunk. *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
 #include "meshsave.h"
-#include <max.h>
+#include "max_sdk.h"
 #include <stdmat.h>
 #include <modstack.h>
 #include "gamemtl.h"
 #include "errclass.h"
-#include "vxl.h"
-#include "vxldbg.h"
 #include "nodelist.h"
 #include "hiersave.h"
 #include "util.h"
@@ -79,9 +53,7 @@
 
 
 static char _string1[512];
-const int VOXEL_RESOLUTION = 64;		// resolution to use when computing I, V and CM
 
-#define DEBUG_VOXELS				0
 #define MIN_AABTREE_POLYGONS	8
 #define DIFFUSE_HOUSECOLOR_TEXTURE_PREFIX 0x4443485A		//'ZHCD' prefix put on all code generated textures
 #define DIFFUSE_COLOR_TEXTURE_PREFIX 0x44434d5A		//'ZMCD' prefix put on all code generated textures
@@ -208,28 +180,8 @@ uint32 setup_mesh_attributes(INode * node)
 
 
 
-/***********************************************************************************************
- * MeshSaveClass::MeshSaveClass -- constructor, processes a Max mesh                           *
- *                                                                                             *
- * This class takes a MAX mesh and computes the information for a W3D mesh or skin.            *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * inode - the max INode containing the mesh/skin to export                                    *
- * exportspace - matrix defining the desired coordinate system for the mesh                    *
- * htree - hierarchy tree that this mesh is being connected to                                 *
- * curtime - current time in Max.                                                              *
- * meter - progress meter                                                                      *
- * mesh_name - name to use for the mesh                                                        *
- * container_name - name of the container                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
+// Processes a Max mesh. This class takes a MAX mesh and computes the information for a W3D mesh or
+// skin. The export space is the matrix defining the desired coordinate system for the mesh.
 MeshSaveClass::MeshSaveClass
 (
 	char * mesh_name,
@@ -259,23 +211,6 @@ MeshSaveClass::MeshSaveClass
 	Mesh			mesh = *input_mesh;		// copy the mesh so we can modify it
 	Mtl *		   nodemtl = inode->GetMtl();
 	DWORD		   wirecolor = inode->GetWireColor();
-
-	PS2Material = FALSE;
-
-	// Check to see if the mesh uses PS2 game materials.  If so, set a flag so
-	// that write_shaders will know to make a PS2 shader chunk.
-	if (nodemtl) {
-		if (nodemtl->ClassID() == PS2GameMaterialClassID) {
-			PS2Material = TRUE;
-		} else if (nodemtl->IsMultiMtl()) {
-			for (int i = 0; i < nodemtl->NumSubMtls(); i++) {
-				Mtl *sub = nodemtl->GetSubMtl(i);
-				if (sub->ClassID() == PS2GameMaterialClassID) {
-					PS2Material = TRUE;
-				}
-			}
-		}
-	}
 
 	//////////////////////////////////////////////////////////////////////
 	// Check if the mesh is being inverted by its transform.  If this
@@ -360,25 +295,6 @@ MeshSaveClass::MeshSaveClass
 	}
 
 	//////////////////////////////////////////////////////////////////////
-	// Create damage (deform) information for the mesh
-	//////////////////////////////////////////////////////////////////////
-	Object *ref_obj = MaxINode->GetObjectRef ();
-	DeformSave.Initialize(Builder, ref_obj, mesh, &MeshToExportSpace);
-
-	//////////////////////////////////////////////////////////////////////
-	// Determine if the deformer should use alpha or v-color info
-	//////////////////////////////////////////////////////////////////////
-	if (ExportOptions.Is_Vertex_Alpha_Enabled()) {
-		unsigned int alpha_passes = 0;
-		for (int pass=0; pass < MaterialDesc.Pass_Count(); pass++) {
-			if (MaterialDesc.Pass_Uses_Vertex_Alpha(pass)) {
-				alpha_passes |= (1 << pass);
-			}
-		}
-		DeformSave.Set_Alpha_Passes(alpha_passes);
-	}
-
-	//////////////////////////////////////////////////////////////////////
 	// Set the counts in the mesh header
 	//////////////////////////////////////////////////////////////////////
 	Header.NumTris = Builder.Get_Face_Count();
@@ -389,14 +305,6 @@ MeshSaveClass::MeshSaveClass
 	// before we pre-deform the mesh (if its a skin).
 	//////////////////////////////////////////////////////////////////////
 	compute_bounding_volumes();
-
-	//////////////////////////////////////////////////////////////////////
-	// Voxelize the mesh and compute the Moment of Inertia and
-	// Center of Mass.  This must come after we compute the bounding
-	// volumes and before we pre-deform the mesh.
-	//////////////////////////////////////////////////////////////////////
-	Progress_Meter_Class voxelmeter(meter, 64.0f * meter.Increment);
-	compute_physical_constants(MaxINode,voxelmeter,false /*usevoxelizer*/);
 
 	//////////////////////////////////////////////////////////////////////
 	// If this is a skin, pre-deform the mesh.
@@ -419,18 +327,6 @@ MeshSaveClass::MeshSaveClass
 	}
 }
 
-/***********************************************************************************************
- * MeshSaveClass::~MeshSaveClass -- destructor, frees all allocated memory                     *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
 MeshSaveClass::~MeshSaveClass()
 {
 	if (UserText) {
@@ -561,8 +457,7 @@ void MeshSaveClass::Build_Mesh(Mesh & mesh, Mtl *node_mtl, unsigned int *materia
 			mtl_to_use = node_mtl->GetSubMtl (maxface.getMatID() % node_mtl->NumSubMtls());
 		}
 
-		if ((mtl_to_use != nullptr) && ((mtl_to_use->ClassID() == GameMaterialClassID) ||
-			 (mtl_to_use->ClassID() == PS2GameMaterialClassID))) {
+		if ((mtl_to_use != nullptr) && (mtl_to_use->ClassID() == GameMaterialClassID)) {
 			face.SurfaceType = ((GameMtl *)mtl_to_use)->Get_Surface_Type ();
 		}
 
@@ -774,17 +669,7 @@ void MeshSaveClass::Build_Mesh(Mesh & mesh, Mtl *node_mtl, unsigned int *materia
 }
 
 
-/***********************************************************************************************
- * MeshSaveClass::get_skin_modifier_objects -- Searches for the WWSkin modifier for this mesh  *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *=============================================================================================*/
+// Searches for the WWSkin modifier for this mesh.
 void MeshSaveClass::get_skin_modifier_objects(SkinDataClass ** skin_data_ptr,SkinWSMObjectClass ** skin_obj_ptr)
 {
 	*skin_data_ptr = nullptr;
@@ -817,18 +702,6 @@ void MeshSaveClass::get_skin_modifier_objects(SkinDataClass ** skin_data_ptr,Ski
 }
 
 
-/***********************************************************************************************
- * MeshSaveClass::get_htree_bone_index_for_inode -- searches the htree for the given INode     *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   5/1/2000   gth : Created.                                                                 *
- *=============================================================================================*/
 int MeshSaveClass::get_htree_bone_index_for_inode(INode * node)
 {
 	// index of this INode in the hierarchy tree (it better be there :-)
@@ -845,19 +718,7 @@ int MeshSaveClass::get_htree_bone_index_for_inode(INode * node)
 	return bindex;
 }
 
-/***********************************************************************************************
- * MeshSaveClass::inv_deform_mesh -- preprocess the mesh for skinning                          *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   10/26/1997 GH  : Created.                                                                 *
- *   5/1/2000   gth : Created.                                                                 *
- *=============================================================================================*/
+// Preprocess the mesh for skinning.
 void MeshSaveClass::inv_deform_mesh()
 {
 	// Got the skinning info, now pre-deform each vertex and
@@ -918,22 +779,7 @@ void MeshSaveClass::inv_deform_mesh()
 }
 
 
-/***********************************************************************************************
- * MeshSaveClass::Write_To_File -- Append the mesh to an open wtm file                         *
- *                                                                                             *
- * INPUT:                                                                                      *
- *    csave - ChunkSaveClass object to handle writing the chunk-based file 						  *
- * 	export_aabtree - should we generate an aabtree for this mesh                             *
- * 																														  *
- * OUTPUT:																												  *
- *    0 if nothing went wrong, Non-Zero otherwise															  *
- * 																														  *
- * WARNINGS:																											  *
- *                                                                                             *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
+// Append the mesh to an open wtm file. Returns 0 if nothing went wrong, non-zero otherwise.
 int MeshSaveClass::Write_To_File(ChunkSaveClass & csave,bool export_aabtree)
 {
 	if (!csave.Begin_Chunk(W3D_CHUNK_MESH)) {
@@ -976,14 +822,6 @@ int MeshSaveClass::Write_To_File(ChunkSaveClass & csave,bool export_aabtree)
 		return 1;
 	}
 
-	if (PS2Material == TRUE) {
-
-		// The ps2 shaders must be written out first.
-		if (write_ps2_shaders(csave) != 0) {
-			return 1;
-		}
-	}
-
 	if (write_shaders(csave) != 0) {
 		return 1;
 	}
@@ -999,10 +837,6 @@ int MeshSaveClass::Write_To_File(ChunkSaveClass & csave,bool export_aabtree)
 		}
 	}
 
-	if (DeformSave.Export (csave) != true) {
-		return 1;
-	}
-
 	if (export_aabtree == true) {
 		if (write_aabtree(csave) != 0) {
 			return 1;
@@ -1016,20 +850,7 @@ int MeshSaveClass::Write_To_File(ChunkSaveClass & csave,bool export_aabtree)
 	return 0;
 }
 
-/***********************************************************************************************
- * MeshSaveClass::write_header -- write a mesh header chunk into a wtm file                    *
- *                                                                                             *
- * INPUT:                                                                                      *
- *    csave - chunk save object                    														  *
- * 																														  *
- * OUTPUT:																												  *
- *    0 if nothing went wrong, Non-Zero otherwise															  *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
+// Returns 0 if nothing went wrong, non-zero otherwise.
 int MeshSaveClass::write_header(ChunkSaveClass & csave)
 {
 	if (!csave.Begin_Chunk(W3D_CHUNK_MESH_HEADER3)) {
@@ -1047,18 +868,6 @@ int MeshSaveClass::write_header(ChunkSaveClass & csave)
 	return 0;
 }
 
-/***********************************************************************************************
- * MeshSaveClass::write_user_text -- write the user text chunk                                 *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/20/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
 int MeshSaveClass::write_user_text(ChunkSaveClass & csave)
 {
 	// If there's no user text, just don't write the chunk
@@ -1082,20 +891,7 @@ int MeshSaveClass::write_user_text(ChunkSaveClass & csave)
 	return 0;
 }
 
-/***********************************************************************************************
- * MeshSaveClass::write_verts -- write the vertex chunk into a wtm file                        *
- *                                                                                             *
- * INPUT:                                                                                      *
- *    csave - chunk save object                    														  *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *    0 if nothing went wrong, Non-Zero otherwise															  *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
+// Returns 0 if nothing went wrong, non-zero otherwise.
 int MeshSaveClass::write_verts(ChunkSaveClass & csave)
 {
 	if (!csave.Begin_Chunk(W3D_CHUNK_VERTICES)) {
@@ -1138,20 +934,8 @@ int MeshSaveClass::write_verts(ChunkSaveClass & csave)
 }
 
 
-/***********************************************************************************************
- * MeshSaveClass::write_vert_normals -- Writes the surrender normal chunk into a wtm file      *
- *                                                                                             *
- * INPUT:                                                                                      *
- *    csave - chunk save object                    														  *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *    0 if nothing went wrong, Non-Zero otherwise															  *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
+// Writes the surrender normal chunk into a wtm file. Returns 0 if nothing went wrong, non-zero
+// otherwise.
 int MeshSaveClass::write_vert_normals(ChunkSaveClass & csave)
 {
 	if (!(Header.VertexChannels & W3D_VERTEX_CHANNEL_NORMAL)) return 0;
@@ -1188,20 +972,8 @@ int MeshSaveClass::write_vert_normals(ChunkSaveClass & csave)
 	return 0;
 }
 
-/***********************************************************************************************
- * MeshSaveClass::write_vert_influences -- skins will have this chunk that binds verts to bones*
- *                                                                                             *
- * INPUT:                                                                                      *
- *    csave - chunk save object                 															  *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *    0 if nothing went wrong, Non-Zero otherwise															  *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   06/10/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
+// Skins will have this chunk that binds verts to bones. Returns 0 if nothing went wrong, non-zero
+// otherwise.
 int MeshSaveClass::write_vert_influences(ChunkSaveClass & csave)
 {
 	if (((Header.Attributes & W3D_MESH_FLAG_GEOMETRY_TYPE_MASK) != W3D_MESH_FLAG_GEOMETRY_TYPE_SKIN) ||
@@ -1227,18 +999,6 @@ int MeshSaveClass::write_vert_influences(ChunkSaveClass & csave)
 }
 
 
-/***********************************************************************************************
- * MeshSaveClass::write_triangles -- write the triangles chunk                                 *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   4/7/98     GTH : Created.                                                                 *
- *=============================================================================================*/
 int MeshSaveClass::write_triangles(ChunkSaveClass & csave)
 {
 	if (!csave.Begin_Chunk(W3D_CHUNK_TRIANGLES)) {
@@ -1387,13 +1147,6 @@ int MeshSaveClass::write_shaders(ChunkSaveClass & csave)
 {
 	assert(MaterialDesc.Shader_Count() > 0);
 
-	if (PS2Material == TRUE) {
-
-		// Make the PC shader as close to the PS2 shader as possible.
-		// This will allow for viewing in W3D View.
-		setup_PC_shaders_from_PS2_shaders();
-	}
-
 	if (!csave.Begin_Chunk(W3D_CHUNK_SHADERS)) {
 		return 1;
 	}
@@ -1411,133 +1164,6 @@ int MeshSaveClass::write_shaders(ChunkSaveClass & csave)
 		return 1;
 	}
 	return 0;
-}
-
-
-/***********************************************************************************************
- * MeshSaveClass::write_ps2_shaders -- Write shaders specific to the PS2 in their own chunk.   *
- *                                                                                             *
- *                                                                                             *
- *                                                                                             *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   10/20/1999MLL: Created.                                                                   *
- *=============================================================================================*/
-int MeshSaveClass::write_ps2_shaders(ChunkSaveClass & csave)
-{
-
-	if (!csave.Begin_Chunk(W3D_CHUNK_PS2_SHADERS)) {
-		return 1;
-	}
-
-	W3dShaderStruct *shader;
-	W3dPS2ShaderStruct ps2shader;
-
-	for (int i=0; i<MaterialDesc.Shader_Count(); i++) {
-		shader = MaterialDesc.Get_Shader(i);
-
-		ps2shader.AlphaTest = W3d_Shader_Get_Alpha_Test(shader);
-		ps2shader.AParam = W3d_Shader_Get_PS2_Param_A(shader);
-		ps2shader.BParam = W3d_Shader_Get_PS2_Param_B(shader);
-		ps2shader.CParam = W3d_Shader_Get_PS2_Param_C(shader);
-		ps2shader.DParam = W3d_Shader_Get_PS2_Param_D(shader);
-
-		// Write out the PS2 native form.
-		switch (W3d_Shader_Get_Depth_Compare(shader))
-		{
-			case PSS_DEPTHCOMPARE_PASS_NEVER:
-				ps2shader.DepthCompare = 0;
-				break;
-			case PSS_DEPTHCOMPARE_PASS_LESS:
-				ps2shader.DepthCompare = 3;
-				break;
-			case PSS_DEPTHCOMPARE_PASS_ALWAYS:
-				ps2shader.DepthCompare = 1;
-				break;
-			case PSS_DEPTHCOMPARE_PASS_LEQUAL:
-				ps2shader.DepthCompare = 2;
-				break;
-		}
-
-		ps2shader.DepthMask = !W3d_Shader_Get_Depth_Mask(shader);
-
-		switch (W3d_Shader_Get_Pri_Gradient(shader))
-		{
-			case PSS_PRIGRADIENT_MODULATE:
-				ps2shader.PriGradient = PSS_PS2_PRIGRADIENT_MODULATE;
-				break;
-
-			case PSS_PRIGRADIENT_HIGHLIGHT:
-				ps2shader.PriGradient = PSS_PS2_PRIGRADIENT_HIGHLIGHT;
-				break;
-
-			case PSS_PRIGRADIENT_HIGHLIGHT2:
-				ps2shader.PriGradient = PSS_PS2_PRIGRADIENT_HIGHLIGHT2;
-				break;
-
-			case PSS_PRIGRADIENT_DECAL:
-				ps2shader.PriGradient = PSS_PS2_PRIGRADIENT_DECAL;
-				break;
-
-		}
-
-		ps2shader.Texturing = W3d_Shader_Get_Texturing(shader);
-
-		if (csave.Write(&ps2shader,sizeof(W3dPS2ShaderStruct)) != sizeof(W3dPS2ShaderStruct)) {
-			return 1;
-		}
-	}
-
-	if (!csave.End_Chunk()) {
-		return 1;
-	}
-
-	return (0);
-}
-
-void MeshSaveClass::setup_PC_shaders_from_PS2_shaders()
-{
-
-	W3dShaderStruct *shader;
-
-	for (int i=0; i<MaterialDesc.Shader_Count(); i++) {
-		shader = MaterialDesc.Get_Shader(i);
-
-		// DepthCompare on the PS2 doesn't have as many options as on the PC.
-		switch (W3d_Shader_Get_Depth_Compare(shader))
-		{
-			case PSS_DEPTHCOMPARE_PASS_NEVER:
-				W3d_Shader_Set_Depth_Compare(shader, W3DSHADER_DEPTHCOMPARE_PASS_NEVER);
-				break;
-			case PSS_DEPTHCOMPARE_PASS_LESS:
-				W3d_Shader_Set_Depth_Compare(shader, W3DSHADER_DEPTHCOMPARE_PASS_LESS);
-				break;
-			case PSS_DEPTHCOMPARE_PASS_LEQUAL:
-				W3d_Shader_Set_Depth_Compare(shader, W3DSHADER_DEPTHCOMPARE_PASS_LEQUAL);
-				break;
-			case PSS_DEPTHCOMPARE_PASS_ALWAYS:
-				W3d_Shader_Set_Depth_Compare(shader, W3DSHADER_DEPTHCOMPARE_PASS_ALWAYS);
-				break;
-		}
-
-		// The PS2 has more gradient functions than the PC.
-		switch (W3d_Shader_Get_Pri_Gradient(shader))
-		{
-			case PSS_PRIGRADIENT_MODULATE:
-				W3d_Shader_Set_Pri_Gradient(shader, W3DSHADER_PRIGRADIENT_MODULATE);
-				break;
-
-			// No PC equivalent.  Set to default: modulate.
-			case PSS_PRIGRADIENT_HIGHLIGHT:
-			case PSS_PRIGRADIENT_HIGHLIGHT2:
-			case PSS_PRIGRADIENT_DECAL:
-				W3d_Shader_Set_Pri_Gradient(shader, W3DSHADER_PRIGRADIENT_MODULATE);
-				break;
-		}
-
-
-	}
-
 }
 
 int MeshSaveClass::write_textures(ChunkSaveClass & csave)
@@ -1595,7 +1221,7 @@ int MeshSaveClass::write_pass(ChunkSaveClass & csave,int pass)
 		write_shader_ids(csave,pass);
 	}
 
-	if (stats.HasDiffuseColor[pass] || DeformSave.Does_Deformer_Modify_DCG ()) {
+	if (stats.HasDiffuseColor[pass]) {
 		write_dcg(csave,pass);
 	}
 
@@ -1936,19 +1562,6 @@ void MeshSaveClass::fix_diffuse_materials(bool isHouseColor)
 	}
 }
 
-/***********************************************************************************************
- * MeshSaveClass::create_materials -- create the materials for this mesh                       *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   10/26/1997 GH  : Created.                                                                 *
- *   2/8/99     GTH : modified to use the MaterialRemapTable                                   *
- *=============================================================================================*/
 void MeshSaveClass::create_materials(Mtl * nodemtl,DWORD wirecolor, char *materialColorTexture)
 {
 	//////////////////////////////////////////////////////////////////////
@@ -2093,18 +1706,6 @@ void MeshSaveClass::create_materials(Mtl * nodemtl,DWORD wirecolor, char *materi
 	Header.SortLevel = MaterialDesc.Get_Sort_Level();
 }
 
-/***********************************************************************************************
- * MeshSaveClass::compute_bounding_volumes -- computes a bounding box and bounding sphere for  *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/01/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
 void MeshSaveClass::compute_bounding_volumes()
 {
 	Vector3 min,max,center;
@@ -2127,110 +1728,6 @@ void MeshSaveClass::compute_bounding_volumes()
 }
 
 
-/***********************************************************************************************
- * MeshSaveClass::compute_physical_properties -- computes the volume and moment of inertia     *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/01/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
-void MeshSaveClass::compute_physical_constants
-(
-	INode * inode,
-	Progress_Meter_Class & meter,
-	bool voxelize
-)
-{
-
-#if 0 // IF we need this again, move the data to a physics chunk (header doesn't have it anymore)
-
-	if (voxelize) {
-
-		// Create an INodeList object for this mesh
-		AnyINodeFilter nodefilt;
-		INodeListClass meshlist(CurTime,&nodefilt);
-		meshlist.Insert(inode);
-
-		// Create a Voxel object for this mesh
-		VoxelClass * voxel = new VoxelClass
- 		(
- 			meshlist,
- 			VOXEL_RESOLUTION,
- 			ExportSpace,
- 			CurTime,
- 			meter
- 		);
-
-#if DEBUG_VOXELS
-		VoxelDebugWindowClass dbgwin(voxel);
- 		dbgwin.Display_Window();
-#endif
-
-		double vol[1];
-		double cm[3];
-		double inertia[9];
-
-		voxel->Compute_Physical_Properties(vol,cm,inertia);
-
-		Header.Volume = (float)vol[0];
-
-		Header.MassCenter.X = (float)cm[0];
-		Header.MassCenter.Y = (float)cm[1];
-		Header.MassCenter.Z = (float)cm[2];
-
-		Header.Inertia[0] = (float)inertia[0];
-		Header.Inertia[1] = (float)inertia[1];
-		Header.Inertia[2] = (float)inertia[2];
-		Header.Inertia[3] = (float)inertia[3];
-		Header.Inertia[4] = (float)inertia[4];
-		Header.Inertia[5] = (float)inertia[5];
-		Header.Inertia[6] = (float)inertia[6];
-		Header.Inertia[7] = (float)inertia[7];
-		Header.Inertia[8] = (float)inertia[8];
-
-	} else {
-
-		// Set mass center to the center of the bounding box
-		Header.MassCenter.X = (Header.Max.X + Header.Min.X) / 2.0f;
-		Header.MassCenter.Y = (Header.Max.Y + Header.Min.Y) / 2.0f;
-		Header.MassCenter.Z = (Header.Max.Z + Header.Min.Z) / 2.0f;
-
-		// Set inertia tensor to inertia tensor of the bounding box
-		// (gth) !!!! DO THIS !!!!
-		Header.Inertia[0] = 1.0f;
-		Header.Inertia[1] = 0.0f;
-		Header.Inertia[2] = 0.0f;
-		Header.Inertia[3] = 0.0f;
-		Header.Inertia[4] = 1.0f;
-		Header.Inertia[5] = 0.0f;
-		Header.Inertia[6] = 0.0f;
-		Header.Inertia[7] = 0.0f;
-		Header.Inertia[8] = 1.0f;
-
-		Header.Volume = (Header.Max.X - Header.Min.X) * (Header.Max.Y - Header.Min.Y) * (Header.Max.Z - Header.Min.Z);
-	}
-
-#endif
-}
-
-
-/***********************************************************************************************
- * MeshSaveClass::prep_mesh -- pre-transform the MAX mesh by a specified matrix                *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/01/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
 void MeshSaveClass::prep_mesh(Mesh & mesh,Matrix3 & objoff)
 {
 	int vert_index;

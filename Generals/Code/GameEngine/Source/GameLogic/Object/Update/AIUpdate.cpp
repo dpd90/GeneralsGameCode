@@ -2291,7 +2291,7 @@ void AIUpdateInterface::setLocomotorGoalPositionExplicit(const Coord3D& newPos)
 	m_locomotorGoalType = POSITION_EXPLICIT;
 	m_locomotorGoalData = newPos;
 #ifdef RTS_DEBUG
-if (_isnan(m_locomotorGoalData.x) || _isnan(m_locomotorGoalData.y) || _isnan(m_locomotorGoalData.z))
+if (std::isnan(m_locomotorGoalData.x) || std::isnan(m_locomotorGoalData.y) || std::isnan(m_locomotorGoalData.z))
 {
 	DEBUG_CRASH(("NAN in setLocomotorGoalPositionExplicit"));
 }
@@ -2304,7 +2304,7 @@ void AIUpdateInterface::setLocomotorGoalOrientation(Real angle)
 	m_locomotorGoalType = ANGLE;
 	m_locomotorGoalData.x = angle;
 #ifdef RTS_DEBUG
-if (_isnan(m_locomotorGoalData.x) || _isnan(m_locomotorGoalData.y) || _isnan(m_locomotorGoalData.z))
+if (std::isnan(m_locomotorGoalData.x) || std::isnan(m_locomotorGoalData.y) || std::isnan(m_locomotorGoalData.z))
 {
 	DEBUG_CRASH(("NAN in setLocomotorGoalOrientation"));
 }
@@ -5119,6 +5119,12 @@ void AIUpdateInterface::loadPostProcess()
 			m_pathfindGoalCell.y = -1;
 			TheAI->pathfinder()->updateGoal(getObject(), &goalPos, getObject()->getLayer());
 		}
+	}
+
+	// TheSuperHackers @bugfix bobtista 11/10/2026 The pathfind queue is not saved, so queue the pending request again.
+	if (m_waitingForPath && m_queueForPathFrame == 0)
+	{
+		TheAI->pathfinder()->queueForPath(getObject()->getID());
 	}
 
 }

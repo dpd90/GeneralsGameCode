@@ -51,6 +51,7 @@
 #include "GameClient/Water.h"
 #include "GameLogic/TerrainLogic.h"
 #include "Common/FramePacer.h"
+#include "Common/GameState.h"
 #include "Common/GlobalData.h"
 #include "Common/UnicodeString.h"
 #include "Common/file.h"
@@ -62,6 +63,7 @@
 #include "WW3D2/camera.h"
 #include "WW3D2/assetmgr.h"
 #include "WW3D2/dx8wrapper.h"
+#include "WW3D2/Renderer.h"
 
 //number of vertex pages allocated - allows double buffering of vertex updates.
 //while one is being rendered, another is being updated.  Improves HW parallelism.
@@ -900,7 +902,7 @@ Try improving the fit to vertical surfaces like cliffs.
 	diffuseLight=REAL_TO_INT(shadeB) | (REAL_TO_INT(shadeG) << 8) | (REAL_TO_INT(shadeR) << 16);
 
 	Matrix3D tm(1);	///set to identity
-	DX8Wrapper::Set_Transform(D3DTS_WORLD,tm);	//position the water surface
+	Renderer::Set_Transform(RenderTransform_World,tm);	//position the water surface
 
 	DX8Wrapper::Set_Material(m_vertexMaterialClass);
 	DX8Wrapper::Set_Shader(m_shaderClass);
@@ -1008,6 +1010,11 @@ void WaterTracksRenderSystem::loadTracks()
 		return;
 
 	AsciiString fileName=TheTerrainLogic->getSourceFilename();
+	// TheSuperHackers @bugfix bobtista 11/10/2026 A save game embeds only the .map file, so load the .wak file of the original map.
+	if (TheGameState->isInSaveDirectory(fileName))
+	{
+		fileName = TheGameState->getPristineMapName();
+	}
 	FileSystem::removeExtension(fileName);
 	fileName.concat(".wak");
 

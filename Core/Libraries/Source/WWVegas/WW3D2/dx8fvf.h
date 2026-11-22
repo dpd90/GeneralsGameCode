@@ -35,8 +35,6 @@
  * 06/26/02 KM VB Vertex format update for shaders                                       *
  * 07/17/02 KM VB Vertex format update for displacement mapping                               *
  * 08/01/02 KM VB Vertex format update for cube mapping                               *
- *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #pragma once
@@ -257,6 +255,8 @@ class FVFInfoClass
 	unsigned							specular_offset;
 public:
 	FVFInfoClass(unsigned FVF);
+
+	static unsigned Get_FVF_Vertex_Size(unsigned FVF);
 
 	unsigned Get_Location_Offset() const { return location_offset; }
 	unsigned Get_Normal_Offset() const { return normal_offset; }

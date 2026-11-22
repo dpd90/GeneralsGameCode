@@ -99,7 +99,7 @@ LogClass::LogClass(const char *fname)
 {
 	char buffer[ _MAX_PATH ];
 	GetModuleFileName( nullptr, buffer, sizeof( buffer ) );
-	if (char *pEnd = strrchr(buffer, '\\'))
+	if (char *pEnd = getLastPathSeparator(buffer))
 	{
 		*pEnd = 0;
 	}
@@ -152,7 +152,7 @@ void LogClass::log(const char *fmt, ...)
 void LogClass::dumpMatrix3D(const Matrix3D *m, AsciiString name, AsciiString fname, Int line)
 {
 	fname.toLower();
-	fname = fname.reverseFind('\\') + 1;
+	fname = getFileName(fname.str());
 	const Real *matrix = (const Real *)m;
 	log("dumpMatrix3D() %s:%d %s",
 		fname.str(), line, name.str());
@@ -166,7 +166,7 @@ void LogClass::dumpReal(Real r, AsciiString name, AsciiString fname, Int line)
 	if (!m_fp || !isValidTimeToCalcLogicStuff())
 		return;
 	fname.toLower();
-	fname = fname.reverseFind('\\') + 1;
+	fname = getFileName(fname.str());
 	log("dumpReal() %s:%d %s %8.8X (%f)",
 		fname.str(), line, name.str(), AS_INT(r), r);
 }
@@ -1733,19 +1733,6 @@ void W3DModelDrawModuleData::parseConditionState(INI* ini, void *instance, void 
 	{
 		self->m_conditionStates.push_back(info);
 	}
-}
-
-//-------------------------------------------------------------------------------------------------
-static Int countOnBits(UnsignedInt val)
-{
-	Int count = 0;
-	for (Int i = 0; i < 32; ++i)
-	{
-		if (val & 1)
-			++count;
-		val >>= 1;
-	}
-	return count;
 }
 
 //-------------------------------------------------------------------------------------------------
